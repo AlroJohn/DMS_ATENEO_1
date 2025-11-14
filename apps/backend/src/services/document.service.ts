@@ -62,6 +62,47 @@ export class DocumentService {
   constructor() {
     this.documentMetadataService = new DocumentMetadataService();
   }
+
+  private parseWorkflowDepartments(workflow: unknown, context: string): string[] {
+    if (!workflow) {
+      return [];
+    }
+
+    try {
+      if (Array.isArray(workflow)) {
+        return workflow
+          .map((value) => {
+            if (typeof value === 'string') return value.trim();
+            if (value == null) return '';
+            return String(value);
+          })
+          .filter((value) => value.length > 0);
+      }
+
+      if (typeof workflow === 'string') {
+        const trimmed = workflow.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          const parsed = JSON.parse(trimmed);
+          return this.parseWorkflowDepartments(parsed, context);
+        }
+        return trimmed ? [trimmed] : [];
+      }
+
+      if (typeof workflow === 'object' && workflow !== null) {
+        return Object.values(workflow)
+          .map((value) => {
+            if (typeof value === 'string') return value.trim();
+            if (value == null) return '';
+            return String(value);
+          })
+          .filter((value) => value.length > 0);
+      }
+    } catch (error) {
+      console.error(`📍 [${context}] Error parsing work_flow_id:`, error);
+    }
+
+    return [];
+  }
   private async calculateChecksum(filePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const hash = crypto.createHash('sha256');
@@ -1995,15 +2036,10 @@ export class DocumentService {
           const documentDetail = documentWithDetails.DocumentAdditionalDetails?.[0];
 
           if (documentDetail && documentDetail.work_flow_id) {
-            let workflowDepartments: string[] = [];
-
-            // Parse workflow from the document details
-            if (typeof documentDetail.work_flow_id === 'object' && documentDetail.work_flow_id !== null) {
-              workflowDepartments = Object.values(documentDetail.work_flow_id);
-            } else if (typeof documentDetail.work_flow_id === 'string') {
-              const parsed = JSON.parse(documentDetail.work_flow_id);
-              workflowDepartments = Object.values(parsed);
-            }
+            const workflowDepartments = this.parseWorkflowDepartments(
+              documentDetail.work_flow_id,
+              'documentCompletionNotifications'
+            );
 
             // Get users from departments that were in the workflow to notify them
             if (workflowDepartments.length > 0) {
