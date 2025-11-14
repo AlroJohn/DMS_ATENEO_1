@@ -37,6 +37,7 @@ export class SearchController {
       if (searchParams.page < 1) searchParams.page = 1;
       if (searchParams.limit < 1 || searchParams.limit > 100) searchParams.limit = 20;
 
+      console.log('Search parameters received:', searchParams); // Debug logging
       const result = await SearchService.searchDocuments(searchParams);
 
       res.status(200).json({

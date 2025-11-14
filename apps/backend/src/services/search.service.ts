@@ -85,62 +85,95 @@ export class SearchService {
       deleted_at: null // Only include documents that are not deleted
     };
     
-    // Add search query condition if provided
-    if (query) {
-      Object.assign(whereClause, {
-        OR: [
-          { title: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } },
-          { document_code: { contains: query, mode: 'insensitive' } }
-        ]
-      });
+    // Add search query condition if provided and not empty
+    if (query && query.trim() !== '') {
+      whereClause.AND = [
+        ...(whereClause.AND || []),
+        {
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { description: { contains: query, mode: 'insensitive' } },
+            { document_code: { contains: query, mode: 'insensitive' } }
+          ]
+        }
+      ];
     }
 
     // Add document type filter
-    if (documentType && documentType !== 'all') {
-      whereClause.document_type = { contains: documentType, mode: 'insensitive' };
+    if (documentType && documentType !== 'all' && documentType.trim() !== '') {
+      whereClause.AND = [
+        ...(whereClause.AND || []),
+        {
+          document_type: { contains: documentType, mode: 'insensitive' }
+        }
+      ];
     }
 
     // Add department filter - Documents are connected to Accounts through DocumentFile
     if (department && department !== 'all') {
-      whereClause.files = {
-        some: {
-          uploaded_by_account: {
-            department: {
-              OR: [
-                { name: { contains: department, mode: 'insensitive' } },
-                { code: { contains: department, mode: 'insensitive' } }
-              ],
-              active: true // Only include active departments
+      whereClause.AND = [
+        ...(whereClause.AND || []),
+        {
+          files: {
+            some: {
+              uploaded_by_account: {
+                department: {
+                  OR: [
+                    { name: { contains: department, mode: 'insensitive' } },
+                    { code: { contains: department, mode: 'insensitive' } }
+                  ],
+                  active: true // Only include active departments
+                }
+              }
             }
           }
         }
-      };
+      ];
     }
 
     // Add status filter
-    if (status && status !== 'all') {
-      whereClause.status = status;
+    if (status && status !== 'all' && status.trim() !== '') {
+      whereClause.AND = [
+        ...(whereClause.AND || []),
+        {
+          status: status
+        }
+      ];
     }
 
     // Add classification filter
-    if (classification && classification !== 'all') {
-      whereClause.classification = classification;
+    if (classification && classification !== 'all' && classification.trim() !== '') {
+      whereClause.AND = [
+        ...(whereClause.AND || []),
+        {
+          classification: classification
+        }
+      ];
     }
 
     // Add origin filter
-    if (origin && origin !== 'all') {
-      whereClause.origin = origin;
+    if (origin && origin !== 'all' && origin.trim() !== '') {
+      whereClause.AND = [
+        ...(whereClause.AND || []),
+        {
+          origin: origin
+        }
+      ];
     }
 
     // Add signature status filter
-    if (signatureStatus && signatureStatus !== 'all') {
+    if (signatureStatus && signatureStatus !== 'all' && signatureStatus.trim() !== '') {
       if (signatureStatus === 'signed') {
-        whereClause.DocumentAdditionalDetails = {
-          some: {
-            signed_at: { not: null }
+        whereClause.AND = [
+          ...(whereClause.AND || []),
+          {
+            DocumentAdditionalDetails: {
+              some: {
+                signed_at: { not: null }
+              }
+            }
           }
-        };
+        ];
       } else if (signatureStatus === 'unsigned') {
         // For unsigned, we need documents where either:
         // 1. They have no DocumentAdditionalDetails, OR
@@ -165,30 +198,44 @@ export class SearchService {
           }
         ];
       } else if (signatureStatus === 'blockchain-verified') {
-        whereClause.DocumentAdditionalDetails = {
-          some: {
-            blockchain_status: 'signed'
+        whereClause.AND = [
+          ...(whereClause.AND || []),
+          {
+            DocumentAdditionalDetails: {
+              some: {
+                blockchain_status: 'signed'
+              }
+            }
           }
-        };
+        ];
       }
     }
 
     // Add date range filters
     if (dateFrom || dateTo) {
-      if (!whereClause.created_at) whereClause.created_at = {};
-      if (dateFrom) {
+      const dateFilter: any = { created_at: {} };
+
+      if (dateFrom && dateFrom.trim() !== '') {
         const fromDate = new Date(dateFrom);
         if (isNaN(fromDate.getTime())) {
           throw new Error(`Invalid date format for dateFrom: ${dateFrom}`);
         }
-        whereClause.created_at.gte = fromDate;
+        dateFilter.created_at.gte = fromDate;
       }
-      if (dateTo) {
+      if (dateTo && dateTo.trim() !== '') {
         const toDate = new Date(dateTo);
         if (isNaN(toDate.getTime())) {
           throw new Error(`Invalid date format for dateTo: ${dateTo}`);
         }
-        whereClause.created_at.lte = toDate;
+        dateFilter.created_at.lte = toDate;
+      }
+
+      // Only add the date filter if it has actual date constraints
+      if (Object.keys(dateFilter.created_at).length > 0) {
+        whereClause.AND = [
+          ...(whereClause.AND || []),
+          dateFilter
+        ];
       }
     }
 
@@ -213,15 +260,18 @@ export class SearchService {
 
     try {
       console.log('Search query where clause:', JSON.stringify(whereClause, null, 2)); // Debug line
-      
+
       // Execute the search query with the built where clause
       const documents = await prisma.document.findMany({
         where: whereClause,
         include: {
-          document_metadata: true,
-          DocumentAdditionalDetails: true,
+          // DocumentMetadata is related through DocumentFile, not directly to Document
+          DocumentAdditionalDetails: {
+            take: 1 // Only get one additional detail record to avoid unnecessary data
+          },
           files: {
             include: {
+              DocumentMetadata: true, // Include document metadata through the files relation
               uploaded_by_account: {
                 include: {
                   department: true
@@ -239,20 +289,34 @@ export class SearchService {
       // Get total count for pagination
       const total = await prisma.document.count({ where: whereClause });
 
+      console.log(`Found ${documents.length} documents out of total ${total}`); // Debug logging
+
       // Transform the Prisma result to match the SearchDocument interface
-      const searchResults: SearchDocument[] = documents.map(doc => ({
-        id: doc.document_id,
-        title: doc.title,
-        description: doc.description || '',
-        type: doc.document_type,
-        department: doc.files[0]?.uploaded_by_account?.department?.name || 'Unknown',
-        status: doc.status,
-        classification: doc.classification,
-        origin: doc.origin,
-        modified: formatDate(doc.updated_at),
-        signed: !!doc.DocumentAdditionalDetails?.[0]?.signed_at,
-        verified: doc.DocumentAdditionalDetails?.[0]?.blockchain_status === 'signed'
-      }));
+      const searchResults: SearchDocument[] = documents.map(doc => {
+        // Get department name from the first file if available
+        const departmentName = doc.files && doc.files.length > 0
+          ? doc.files[0]?.uploaded_by_account?.department?.name || 'Unknown'
+          : 'Unknown';
+
+        // Get signature information from the first additional detail if available
+        const additionalDetail = doc.DocumentAdditionalDetails && doc.DocumentAdditionalDetails.length > 0
+          ? doc.DocumentAdditionalDetails[0]
+          : null;
+
+        return {
+          id: doc.document_id,
+          title: doc.title,
+          description: doc.description || '',
+          type: doc.document_type,
+          department: departmentName,
+          status: doc.status,
+          classification: doc.classification,
+          origin: doc.origin,
+          modified: formatDate(doc.updated_at),
+          signed: !!additionalDetail?.signed_at,
+          verified: additionalDetail?.blockchain_status === 'signed'
+        };
+      });
 
       return {
         documents: searchResults,
@@ -264,6 +328,7 @@ export class SearchService {
     } catch (error) {
       console.error('Error searching documents:', error);
       console.error('Where clause that caused error:', JSON.stringify(whereClause, null, 2));
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error', error instanceof Error ? error.stack : '');
       throw new Error(`Failed to search documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
