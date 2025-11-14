@@ -97,15 +97,15 @@ model Document {
 model DocumentAdditionalDetails {
   detail_id               String    @id @default(uuid()) @db.Uuid
   document_id             String    @db.Uuid
-  received_by             String?   @db.Uuid
-  work_flow_id            Json?
-  received_by_departments Json?
-  blockchain_project_uuid String?
-  blockchain_tx_hash      String?
-  blockchain_status       String?
-  blockchain_redirect_url String?
-  signed_at               DateTime?
-  signed_by               String?   @db.Uuid
+  received_by             String?   @db.Uuid // User ID who received/acknowledged the document
+  work_flow_id            Json? // Array of department IDs tracking document routing path: [first:, dest_dept_1_id, second:dest_dept_2_id, ...]. First element is the originating department.
+  received_by_departments Json? // Array of user IDs that have received/acknowledged this document: [first:"user_id_1", second:"user_id_2"...]. first element is the originating department user.
+  blockchain_project_uuid String? // DOCONCHAIN project UUID after signing
+  blockchain_tx_hash      String? // Blockchain transaction hash
+  blockchain_status       String? // Signing status: 'pending', 'signed', 'failed', null
+  blockchain_redirect_url String? // URL to launch DocOnChain signing session
+  signed_at               DateTime? // Timestamp when document was signed
+  signed_by               String?   @db.Uuid // User ID who signed the document
   remarks                 String?
   deleted_by              String?   @db.Uuid
   restored_by             String?   @db.Uuid
