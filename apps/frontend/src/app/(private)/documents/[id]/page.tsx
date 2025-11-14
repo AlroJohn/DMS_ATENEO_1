@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BlockchainSigningModal } from "@/components/modals/blockchain-signing-modal";
 import { DocumentPreviewModal } from "@/components/modals/document-preview-modal";
+import { ReleaseDocumentModal } from "@/components/modals/release-document-modal";
 import { ShareDocumentModal } from "@/components/modals/share-document-modal";
 import { useDocumentDetail } from "@/hooks/use-document-detail";
 import { useDocumentFiles } from "@/hooks/use-document-files";
@@ -44,6 +45,7 @@ export default function DocumentDetailPage({
   const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
   const { document, isLoading, error, refetch } = useDocumentDetail(documentId);
   const {
     files,
@@ -258,7 +260,10 @@ export default function DocumentDetailPage({
             <Shield className="mr-2 h-4 w-4" />
             {canSign ? "Sign Document" : "Signing In Progress"}
           </Button>
-          <Button className="bg-purple-600 hover:bg-purple-700">
+          <Button
+            className="bg-purple-600 hover:bg-purple-700"
+            onClick={() => setIsReleaseModalOpen(true)}
+          >
             <Send className="mr-2 h-4 w-4" />
             Release
           </Button>
@@ -562,6 +567,25 @@ export default function DocumentDetailPage({
         documentTitle={title}
         onShare={handleShareDocument}
         onShared={refetch} // Refetch document data after sharing
+      />
+
+      <ReleaseDocumentModal
+        isOpen={isReleaseModalOpen}
+        onClose={() => setIsReleaseModalOpen(false)}
+        document={{
+          id: documentId,
+          qrCode: document.qrCode || "",
+          barcode: document.barcode || "",
+          document: title,
+          documentId: document.document_id || documentId,
+          contactPerson: document.detail?.created_by || "Unknown",
+          contactOrganization: "",
+          type: document.detail?.document_type?.name || "",
+          classification: document.classification || document.detail?.classification || "Unclassified",
+          status: document.status || "unknown",
+          activity: "",
+          activityTime: "",
+        }}
       />
     </div>
   );
