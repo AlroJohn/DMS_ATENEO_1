@@ -74,6 +74,12 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
               auth: {
                 token: data.token,
               },
+              transports: ["websocket"],
+              reconnection: true,
+              reconnectionAttempts: Infinity,
+              reconnectionDelay: 200,
+              reconnectionDelayMax: 1000,
+              timeout: 8000,
             });
 
             newSocket.on("connect", () => {

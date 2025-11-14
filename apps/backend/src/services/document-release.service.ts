@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { getSocketInstance } from '../socket';
 import { EmailService, DocumentReleasedEmailData } from './email.service';
+import { NotificationService } from './notification.service';
 
 export class DocumentReleaseService {
   prisma = prisma; // Expose prisma instance for use in controllers
@@ -199,6 +200,33 @@ export class DocumentReleaseService {
           toDepartment: departmentId,
           timestamp: new Date().toISOString()
         });
+
+        // Send notifications to users in the receiving department
+        const notificationService = new NotificationService();
+        try {
+          // Get users in the receiving department to send notifications to
+          const receivingDepartmentUsers = await prisma.user.findMany({
+            where: {
+              department_id: departmentId,
+              active: true
+            },
+            select: {
+              user_id: true
+            }
+          });
+
+          // Create notifications for each user in the receiving department
+          for (const user of receivingDepartmentUsers) {
+            await notificationService.createDocumentReleasedNotification(
+              user.user_id,
+              documentId,
+              document.title,
+              departmentId
+            );
+          }
+        } catch (error) {
+          console.error('Error creating notifications for document release:', error);
+        }
       }
 
       // Send email notification to the receiving department
@@ -367,6 +395,38 @@ export class DocumentReleaseService {
       });
 
       console.log('📍 [DocumentReleaseService.receiveDocument] Document received successfully by department:', user.department_id);
+
+      // Send notification to users in the receiving department
+      const notificationService = new NotificationService();
+      try {
+        // Get the document to include its title in the notification
+        const document = await prisma.document.findUnique({
+          where: { document_id: documentId },
+          select: { title: true }
+        });
+
+        // Get users in the department to send notifications to
+        const deptUsers = await prisma.user.findMany({
+          where: {
+            department_id: user.department_id,
+            active: true
+          },
+          select: {
+            user_id: true
+          }
+        });
+
+        // Send notification to each user in the department
+        for (const deptUser of deptUsers) {
+          await notificationService.createDocumentReceivedNotification(
+            deptUser.user_id,
+            documentId,
+            document?.title || 'Untitled Document'
+          );
+        }
+      } catch (notificationError) {
+        console.error('Error creating notifications for document received:', notificationError);
+      }
 
       return {
         success: true,

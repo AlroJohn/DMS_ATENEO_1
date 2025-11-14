@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Settings, CheckCheck, Eye, FileText, CheckCircle, PenTool, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Settings, CheckCheck, Eye, FileText, CheckCircle, PenTool, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,49 +12,31 @@ import { Separator } from "@/components/ui/separator";
 
 export default function NotificationsPage() {
   const [frequency, setFrequency] = useState("immediate");
-  
-  const notifications = [
-    {
-      id: 1,
-      type: "document_signed",
-      title: "Document Signed",
-      message: "Contract ABC-123 has been signed by John Doe",
-      time: "2 minutes ago",
-      read: false,
-      icon: PenTool,
-      color: "text-purple-600"
-    },
-    {
-      id: 2,
-      type: "document_received",
-      title: "New Document Received",
-      message: "You have received a new document for review",
-      time: "1 hour ago",
-      read: false,
-      icon: FileText,
-      color: "text-blue-600"
-    },
-    {
-      id: 3,
-      type: "workflow_approved",
-      title: "Workflow Approved",
-      message: "Your document has been approved and moved to the next stage",
-      time: "3 hours ago",
-      read: true,
-      icon: CheckCircle,
-      color: "text-green-600"
-    },
-    {
-      id: 4,
-      type: "blockchain_verified",
-      title: "Blockchain Verification Complete",
-      message: "Document verification on blockchain completed successfully",
-      time: "1 day ago",
-      read: true,
-      icon: AlertTriangle,
-      color: "text-orange-600"
-    }
-  ];
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch notifications from API
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/notifications');
+        if (!response.ok) {
+          throw new Error('Failed to fetch notifications');
+        }
+        const data = await response.json();
+        setNotifications(data.data || []);
+      } catch (err) {
+        console.error('Error fetching notifications:', err);
+        setError('Failed to load notifications');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   const notificationTypes = [
     { icon: FileText, title: "Document Updates", description: "New, edited, or deleted documents", color: "bg-blue-50" },
@@ -62,6 +44,49 @@ export default function NotificationsPage() {
     { icon: PenTool, title: "Signature Events", description: "Document signing and verification", color: "bg-purple-50" },
     { icon: AlertTriangle, title: "System Alerts", description: "Security and system notifications", color: "bg-orange-50" }
   ];
+
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications/read-all', {
+        method: 'PATCH',
+      });
+      if (response.ok) {
+        setNotifications(prev => 
+          prev.map(n => ({ ...n, is_read: true }))
+        );
+      }
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'document_signed':
+      case 'document':
+        return PenTool;
+      case 'document_received':
+        return FileText;
+      case 'workflow_approved':
+        return CheckCircle;
+      default:
+        return AlertTriangle;
+    }
+  };
+
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case 'document_signed':
+      case 'document':
+        return 'text-purple-600';
+      case 'document_received':
+        return 'text-blue-600';
+      case 'workflow_approved':
+        return 'text-green-600';
+      default:
+        return 'text-orange-600';
+    }
+  };
 
   return (
     <div className="flex h-full flex-col gap-6 px-4 pb-4 bg-background">
@@ -77,7 +102,12 @@ export default function NotificationsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={markAllAsRead}
+            disabled={notifications.every(n => n.is_read)}
+          >
             <CheckCheck className="h-4 w-4 mr-2" />
             Mark All Read
           </Button>
@@ -97,51 +127,112 @@ export default function NotificationsPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
-                {notifications.map((notification) => {
-                  const Icon = notification.icon;
-                  return (
-                    <div
-                      key={notification.id}
-                      className={`p-6 hover:bg-accent/50 transition-colors ${
-                        !notification.read ? 'bg-primary/5 border-l-4 border-l-primary' : ''
-                      }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className={`p-2 rounded-lg bg-background ${notification.color}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-semibold">{notification.title}</h4>
-                              <p className="text-muted-foreground text-sm mt-1">{notification.message}</p>
-                            </div>
-                            {!notification.read && (
-                              <Badge variant="default" className="ml-2">
-                                New
-                              </Badge>
-                            )}
+                {loading ? (
+                  <div className="p-8 text-center">
+                    <p>Loading notifications...</p>
+                  </div>
+                ) : error ? (
+                  <div className="p-8 text-center">
+                    <p className="text-red-500">{error}</p>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Bell className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 font-semibold">No notifications</h3>
+                    <p className="text-muted-foreground text-sm">You're all caught up!</p>
+                  </div>
+                ) : (
+                  notifications.map((notification) => {
+                    const Icon = getNotificationIcon(notification.type);
+                    const color = getNotificationColor(notification.type);
+
+                    return (
+                      <div
+                        key={notification.notification_id || notification.id}
+                        className={`p-6 hover:bg-accent/50 transition-colors ${
+                          !notification.is_read ? 'bg-primary/5 border-l-4 border-l-primary' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={`p-2 rounded-lg bg-background ${color}`}>
+                            <Icon className="h-5 w-5" />
                           </div>
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="text-xs text-muted-foreground">{notification.time}</span>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-3 w-3 mr-1" />
-                                View
-                              </Button>
-                              {!notification.read && (
-                                <Button variant="ghost" size="sm">
-                                  <CheckCheck className="h-3 w-3 mr-1" />
-                                  Mark Read
-                                </Button>
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h4 className="font-semibold">{notification.title}</h4>
+                                <p className="text-muted-foreground text-sm mt-1">{notification.message}</p>
+                              </div>
+                              {!notification.is_read && (
+                                <Badge variant="default" className="ml-2">
+                                  New
+                                </Badge>
                               )}
+                            </div>
+                            <div className="flex items-center justify-between mt-3">
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(notification.created_at || notification.timestamp).toLocaleString()}
+                              </span>
+                              <div className="flex gap-2">
+                                {!notification.is_read && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={async () => {
+                                      try {
+                                        const response = await fetch(`/api/notifications/${notification.notification_id}/read`, {
+                                          method: 'PATCH',
+                                        });
+                                        if (response.ok) {
+                                          // Update the notification in the UI
+                                          setNotifications(prev => 
+                                            prev.map(n => 
+                                              n.notification_id === notification.notification_id 
+                                                ? { ...n, is_read: true } 
+                                                : n
+                                            )
+                                          );
+                                        }
+                                      } catch (err) {
+                                        console.error('Error marking notification as read:', err);
+                                      }
+                                    }}
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Mark as read
+                                  </Button>
+                                )}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(`/api/notifications/${notification.notification_id}`, {
+                                        method: 'DELETE',
+                                      });
+                                      if (response.ok) {
+                                        // Remove the notification from the UI
+                                        setNotifications(prev => 
+                                          prev.filter(n => 
+                                            n.notification_id !== notification.notification_id
+                                          )
+                                        );
+                                      }
+                                    } catch (err) {
+                                      console.error('Error deleting notification:', err);
+                                    }
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
@@ -178,51 +269,55 @@ export default function NotificationsPage() {
               <Separator />
 
               <div className="space-y-4">
-                <h4 className="font-medium">In-App Notifications</h4>
+                <h4 className="font-medium">Push Notifications</h4>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="app-realtime" defaultChecked />
-                    <Label htmlFor="app-realtime" className="text-sm">Real-time notifications</Label>
+                    <Checkbox id="push-signed" defaultChecked />
+                    <Label htmlFor="push-signed" className="text-sm">Document signed</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="app-sound" />
-                    <Label htmlFor="app-sound" className="text-sm">Sound notifications</Label>
+                    <Checkbox id="push-received" defaultChecked />
+                    <Label htmlFor="push-received" className="text-sm">Document received</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="push-workflow" defaultChecked />
+                    <Label htmlFor="push-workflow" className="text-sm">Workflow updates</Label>
                   </div>
                 </div>
               </div>
 
               <Separator />
 
-              <div className="space-y-2">
-                <Label htmlFor="frequency">Frequency</Label>
+              <div className="space-y-4">
+                <h4 className="font-medium">Notification Frequency</h4>
                 <Select value={frequency} onValueChange={setFrequency}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="immediate">Immediate</SelectItem>
-                    <SelectItem value="hourly">Hourly Digest</SelectItem>
-                    <SelectItem value="daily">Daily Digest</SelectItem>
-                    <SelectItem value="weekly">Weekly Digest</SelectItem>
+                    <SelectItem value="daily">Daily digest</SelectItem>
+                    <SelectItem value="weekly">Weekly digest</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </CardContent>
           </Card>
 
+          {/* Notification Types */}
           <Card>
             <CardHeader>
               <CardTitle>Notification Types</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               {notificationTypes.map((type, index) => {
                 const Icon = type.icon;
                 return (
-                  <div key={index} className={`flex items-center gap-3 p-3 rounded-lg ${type.color}`}>
-                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  <div key={index} className={`${type.color} rounded-lg p-4 flex items-start gap-3`}>
+                    <Icon className="h-5 w-5 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium">{type.title}</p>
-                      <p className="text-xs text-muted-foreground">{type.description}</p>
+                      <h4 className="font-medium">{type.title}</h4>
+                      <p className="text-sm text-muted-foreground">{type.description}</p>
                     </div>
                   </div>
                 );

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useSocket } from "@/components/providers/providers";
+import { toast } from "sonner";
 
 export type AppNotification = {
   id: string;
@@ -20,6 +21,7 @@ interface NotificationsContextType {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   deleteNotification: (id: string) => void;
+  fetchNotifications: () => Promise<void>;
 }
 
 const NotificationsContext = React.createContext<
@@ -45,155 +47,164 @@ export const NotificationsProvider = ({
     []
   );
 
-  const createNotificationFromPayload = (
-    payload: any,
-    type: AppNotification["type"]
-  ): AppNotification => {
-    const title =
-      payload?.title ||
-      payload?.event ||
-      (type === "document"
-        ? "New Document"
-        : type === "invitation"
-        ? "Invitation"
-        : "System");
-    const message =
-      payload?.message ||
-      payload?.description ||
-      payload?.text ||
-      JSON.stringify(payload || {});
-    return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type,
-      title,
-      message,
-      timestamp: "just now",
-      read: false,
-    };
-  };
-
   React.useEffect(() => {
     if (!socket) return;
 
-    const onIncomingDocument = (data: any) => {
-      setNotifications((prev) => [
-        createNotificationFromPayload(data, "document"),
-        ...prev,
-      ]);
+    const onNewNotification = (data: any) => {
+      // A new notification has been created in the backend, fetch all notifications to update the UI
+      fetchNotifications();
     };
 
-    const onInvitation = (data: any) => {
-      setNotifications((prev) => [
-        createNotificationFromPayload(data, "invitation"),
-        ...prev,
-      ]);
+    const onNotificationUpdated = (data: any) => {
+      // A notification has been updated (e.g., marked as read), fetch all notifications to update the UI
+      fetchNotifications();
     };
 
-    const onSystem = (data: any) => {
-      setNotifications((prev) => [
-        createNotificationFromPayload(data, "system"),
-        ...prev,
-      ]);
+    const onAllNotificationsRead = () => {
+      fetchNotifications(); // Refresh notifications to reflect that all are now read
     };
 
-    // New workflow event handlers
-    const onDocumentShared = (data: any) => {
-      const notification: AppNotification = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type: "workflow",
-        workflowEvent: "document_shared",
-        title: "Document Shared",
-        message: `A document has been shared with you: ${data.documentTitle || data.documentId || 'Untitled'}`,
-        timestamp: new Date().toISOString(),
-        read: false,
-      };
-      setNotifications((prev) => [notification, ...prev]);
+    const onNotificationDeleted = (data: any) => {
+      // A notification has been deleted, fetch all notifications to update the UI
+      fetchNotifications();
     };
 
-    const onDocumentReleased = (data: any) => {
-      const notification: AppNotification = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type: "workflow",
-        workflowEvent: "document_released",
-        title: "Document Released",
-        message: `A document has been released to ${data.toDepartment || data.toUser || 'another department'}`,
-        timestamp: new Date().toISOString(),
-        read: false,
-      };
-      setNotifications((prev) => [notification, ...prev]);
-    };
+    // Listen to socket events for real-time updates
+    socket.on('new_notification', onNewNotification);
+    socket.on('notification_updated', onNotificationUpdated);
+    socket.on('all_notifications_read', onAllNotificationsRead);
+    socket.on('notification_deleted', onNotificationDeleted);
 
-    const onDocumentCompleted = (data: any) => {
-      const notification: AppNotification = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type: "workflow",
-        workflowEvent: "document_completed",
-        title: "Document Completed",
-        message: `A document has been marked as completed: ${data.documentTitle || data.documentId || 'Untitled'}`,
-        timestamp: new Date().toISOString(),
-        read: false,
-      };
-      setNotifications((prev) => [notification, ...prev]);
-    };
+    // Also listen to workflow events that should trigger notifications
+    socket.on('document_shared', onNewNotification);
+    socket.on('document_released', onNewNotification);
+    socket.on('document_completed', onNewNotification);
+    socket.on('document_updated', onNewNotification);
+    socket.on('document_received', onNewNotification);
+    socket.on('document_signed', onNewNotification);
 
-    const onDocumentUpdated = (data: any) => {
-      const notification: AppNotification = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type: "workflow",
-        workflowEvent: "document_updated",
-        title: "Document Updated",
-        message: `A document has been updated: ${data.documentTitle || data.documentId || 'Untitled'}`,
-        timestamp: new Date().toISOString(),
-        read: false,
-      };
-      setNotifications((prev) => [notification, ...prev]);
-    };
-
-    socket.on("incoming_document", onIncomingDocument);
-    socket.on("document-changed", onIncomingDocument);
-    socket.on("invitation_received", onInvitation);
-    socket.on("notification", onSystem);
-    socket.on("system_message", onSystem);
-    
-    // Workflow event listeners
-    socket.on("documentShared", onDocumentShared);
-    socket.on("documentReleased", onDocumentReleased);
-    socket.on("documentCompleted", onDocumentCompleted);
-    socket.on("documentUpdated", onDocumentUpdated);
+    // Fetch notifications on initial connection
+    fetchNotifications();
 
     return () => {
-      socket.off("incoming_document", onIncomingDocument);
-      socket.off("document-changed", onIncomingDocument);
-      socket.off("invitation_received", onInvitation);
-      socket.off("notification", onSystem);
-      socket.off("system_message", onSystem);
-      
-      // Remove workflow event listeners
-      socket.off("documentShared", onDocumentShared);
-      socket.off("documentReleased", onDocumentReleased);
-      socket.off("documentCompleted", onDocumentCompleted);
-      socket.off("documentUpdated", onDocumentUpdated);
+      socket.off('new_notification', onNewNotification);
+      socket.off('notification_updated', onNotificationUpdated);
+      socket.off('all_notifications_read', onAllNotificationsRead);
+      socket.off('notification_deleted', onNotificationDeleted);
+      socket.off('document_shared', onNewNotification);
+      socket.off('document_released', onNewNotification);
+      socket.off('document_completed', onNewNotification);
+      socket.off('document_updated', onNewNotification);
+      socket.off('document_received', onNewNotification);
+      socket.off('document_signed', onNewNotification);
     };
   }, [socket]);
 
-  const addNotification = (n: AppNotification) =>
-    setNotifications((prev) => [n, ...prev]);
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications?limit=50', {
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch notifications');
+      }
+      
+      const data = await response.json();
+      
+      // Convert API response to our AppNotification format
+      const formattedNotifications: AppNotification[] = data.data.map((n: any) => ({
+        id: n.notification_id,
+        type: n.type as AppNotification["type"],
+        title: n.title,
+        message: n.message,
+        timestamp: n.created_at || n.timestamp,
+        read: n.is_read || n.read || false,
+        workflowEvent: n.workflow_event || n.workflowEvent || undefined,
+      }));
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-    if (socket) socket.emit("notification_read", { notificationId: id });
+      setNotifications(formattedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      toast.error('Failed to load notifications');
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    if (socket) socket.emit("notification_read_all");
+  const addNotification = (notification: AppNotification) => {
+    setNotifications(prev => [notification, ...prev]);
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    if (socket) socket.emit("notification_deleted", { notificationId: id });
+  const markAsRead = async (id: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${id}/read`, {
+        method: 'PATCH',
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to mark notification as read');
+      }
+      
+      // The socket event will handle updating the UI
+      toast.success('Notification marked as read');
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      toast.error('Failed to mark notification as read');
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications/read-all', {
+        method: 'PATCH',
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to mark all notifications as read');
+      }
+      
+      // The socket event will handle updating the UI
+      toast.success('All notifications marked as read');
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      toast.error('Failed to mark all notifications as read');
+    }
+  };
+
+  const deleteNotification = async (id: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${id}`, {
+        method: 'DELETE',
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete notification');
+      }
+      
+      // The socket event will handle updating the UI
+      toast.success('Notification deleted');
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      toast.error('Failed to delete notification');
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -207,11 +218,10 @@ export const NotificationsProvider = ({
         markAsRead,
         markAllAsRead,
         deleteNotification,
+        fetchNotifications,
       }}
     >
       {children}
     </NotificationsContext.Provider>
   );
 };
-
-export default NotificationsProvider;

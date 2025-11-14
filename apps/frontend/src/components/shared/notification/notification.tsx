@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Bell, Check, Clock, FileText, UserPlus, X } from "lucide-react"
+import { Bell, Check, Clock, FileText, UserPlus, X, CheckCheck } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -17,11 +17,12 @@ import { useNotifications } from '@/context/notifications'
 
 interface Notification {
   id: string
-  type: "document" | "invitation" | "system"
+  type: "document" | "invitation" | "system" | "workflow"
   title: string
   message: string
   timestamp: string
   read: boolean
+  workflowEvent?: string; // Specific workflow event type (e.g., "document_shared", "document_released", "document_completed")
   icon?: React.ReactNode
 }
 
@@ -43,6 +44,8 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
         return <UserPlus className="h-4 w-4" />
       case "system":
         return <Bell className="h-4 w-4" />
+      case "workflow":
+        return <Check className="h-4 w-4" />
       default:
         return <Bell className="h-4 w-4" />
     }
@@ -73,7 +76,7 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
           </div>
 
           {/* Notifications List */}
-            <ScrollArea className="flex-1 px-4">
+          <ScrollArea className="flex-1 px-4">
             <div className="space-y-3 py-4">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -92,8 +95,8 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
                     className={cn(
                       "group relative rounded-xl p-4 transition-all duration-200",
                       "border border-border/50",
-                      !notification.read 
-                        ? "bg-accent/50 hover:bg-accent/70" 
+                      !notification.read
+                        ? "bg-accent/50 hover:bg-accent/70"
                         : "bg-background hover:bg-accent/30"
                     )}
                   >
@@ -102,12 +105,14 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
                       <div
                         className={cn(
                           "flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center",
-                          notification.type === "document" && 
+                          notification.type === "document" &&
                             "bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
-                          notification.type === "invitation" && 
+                          notification.type === "invitation" &&
                             "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400",
-                          notification.type === "system" && 
-                            "bg-orange-100 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400"
+                          notification.type === "system" &&
+                            "bg-orange-100 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400",
+                          notification.type === "workflow" &&
+                            "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400"
                         )}
                       >
                         {getNotificationIcon(notification.type)}
@@ -116,59 +121,41 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
                       {/* Content */}
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold leading-tight">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight truncate">
                               {notification.title}
                             </p>
-                            {!notification.read && (
-                              <Badge 
-                                variant="default" 
-                                className="h-5 px-2 text-[10px] font-medium bg-primary/90"
-                              >
-                                New
-                              </Badge>
-                            )}
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(notification.timestamp).toLocaleString()}
+                            </p>
                           </div>
-                        </div>
-                        
-                        <p className="text-sm text-muted-foreground leading-relaxed pr-4">
-                          {notification.message}
-                        </p>
-                        
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{notification.timestamp}</span>
-                          </div>
-                          
-                          {/* Action buttons - visible on hover or for unread */}
-                          <div className={cn(
-                            "flex items-center gap-1 transition-opacity",
-                            notification.read ? "opacity-0 group-hover:opacity-100" : "opacity-100"
-                          )}>
-                            {!notification.read && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs hover:bg-background/50"
-                                onClick={() => markAsRead(notification.id)}
-                              >
-                                <Check className="h-3 w-3 mr-1" />
-                                Mark read
-                              </Button>
-                            )}
+                          {!notification.read && (
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => deleteNotification(notification.id)}
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => markAsRead(notification.id)}
+                              aria-label="Mark as read"
                             >
-                              <X className="h-3 w-3 mr-1" />
-                              Delete
+                              <Check className="h-3 w-3" />
                             </Button>
-                          </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Close button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mt-1"
+                        onClick={() => deleteNotification(notification.id)}
+                        aria-label="Dismiss"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 ))
@@ -178,6 +165,5 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
         </div>
       </SheetContent>
     </Sheet>
-  )
+  );
 }
-

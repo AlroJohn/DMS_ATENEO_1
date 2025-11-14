@@ -10,6 +10,7 @@ import { DoconchainService, SignerMarkPayload, SignerPayload, SignerRole } from 
 import { getSocketInstance } from '../socket';
 import { EmailService, DocumentSharedEmailData, DocumentReleasedEmailData, DocumentCompletedEmailData } from './email.service';
 import { DocumentMetadataService } from './document-metadata.service';
+import { NotificationService } from './notification.service';
 // Import the getSocketInstance function instead of importing io directly from index
 
 // Create a type alias to avoid confusion with DOM Document
@@ -1684,6 +1685,19 @@ export class DocumentService {
       }
     });
 
+    // Send notifications for document creation
+    const notificationService = new NotificationService();
+    try {
+      // Notify the creator that the document was created
+      const notification = await notificationService.createDocumentCreatedNotification(
+        userId,
+        document.document_id,
+        document.title
+      );
+    } catch (error) {
+      console.error('Error creating notification for document creation:', error);
+    }
+
     return document;
   }
 
@@ -1972,6 +1986,51 @@ export class DocumentService {
             console.error(`Failed to send document completed email to ${emailData.recipientEmail}:`, err);
           });
         }
+
+        // Send completion notifications via the notification service
+        const notificationService = new NotificationService();
+        try {
+          // Get users who should be notified about the completion
+          // This includes the original creator and any workflow participants
+          const documentDetail = documentWithDetails.DocumentAdditionalDetails?.[0];
+
+          if (documentDetail && documentDetail.work_flow_id) {
+            let workflowDepartments: string[] = [];
+
+            // Parse workflow from the document details
+            if (typeof documentDetail.work_flow_id === 'object' && documentDetail.work_flow_id !== null) {
+              workflowDepartments = Object.values(documentDetail.work_flow_id);
+            } else if (typeof documentDetail.work_flow_id === 'string') {
+              const parsed = JSON.parse(documentDetail.work_flow_id);
+              workflowDepartments = Object.values(parsed);
+            }
+
+            // Get users from departments that were in the workflow to notify them
+            if (workflowDepartments.length > 0) {
+              for (const deptId of workflowDepartments) {
+                const workflowUsers = await prisma.user.findMany({
+                  where: {
+                    department_id: deptId,
+                    active: true
+                  },
+                  select: {
+                    user_id: true
+                  }
+                });
+
+                for (const user of workflowUsers) {
+                  await notificationService.createDocumentCompletedNotification(
+                    user.user_id,
+                    documentId,
+                    documentWithDetails.title
+                  );
+                }
+              }
+            }
+          }
+        } catch (notificationError) {
+          console.error('Error creating completion notifications:', notificationError);
+        }
       }
 
       return {
@@ -2098,6 +2157,17 @@ export class DocumentService {
         documentId,
       });
 
+      // Send notification to the user who received the document
+      const notificationService = new NotificationService();
+      try {
+        await notificationService.createDocumentReceivedNotification(
+          userId,
+          documentId,
+          document.title
+        );
+      } catch (notificationError) {
+        console.error('Error creating notification for document received:', notificationError);
+      }
 
       return { success: true, data: updatedDocument };
     } catch (error: any) {

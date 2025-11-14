@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import bwipjs from 'bwip-js';
 import { getSocketInstance } from '../socket';
 import { EmailService, DocumentSharedEmailData } from './email.service';
+import { NotificationService } from './notification.service';
 
 interface PaginationParams {
   page: number;
@@ -614,6 +615,20 @@ export class SharedDocumentService {
           sharedBy: userId,
           timestamp: new Date()
         });
+      }
+
+      // Send notification to target users
+      const notificationService = new NotificationService();
+      for (const user of targetUsers) {
+        try {
+          await notificationService.createDocumentSharedNotification(
+            user.user_id,
+            documentId,
+            document.title
+          );
+        } catch (notificationError) {
+          console.error(`Error creating notification for user ${user.user_id}:`, notificationError);
+        }
       }
 
       // Send email notifications to target users

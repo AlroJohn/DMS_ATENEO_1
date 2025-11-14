@@ -31,6 +31,7 @@ import intransitRoutes from './routes/intransit.routes';
 import recycleBinRoutes from './routes/recyclebin.routes';
 import sharedDocumentRoutes from './routes/shared-document.routes';
 import documentMetadataRoutes from './routes/document-metadata.routes'; // Import the new route
+import notificationsRoutes from './routes/notifications'; // Import notifications route
 
 // Import middleware
 import { requestLogger, errorLogger } from './middleware/logging';
@@ -151,6 +152,7 @@ app.use('/api/intransit', intransitRoutes);
 app.use('/api/recycle-bin', recycleBinRoutes);
 app.use('/api/shared', sharedDocumentRoutes);
 app.use('/api/document-metadata', documentMetadataRoutes); // Add the new route
+app.use('/api/notifications', notificationsRoutes); // Add notifications route
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -162,7 +164,13 @@ io.on('connection', (socket) => {
     console.log(`User ${user.user_id} joined department room: department_${user.department_id}`);
   }
 
-  // Join user to their personal room
+  // Automatically join user to their personal room based on their user ID
+  if (user && user.user_id) {
+    socket.join(`user-${user.user_id}`);
+    console.log(`User ${user.user_id} joined their personal room`);
+  }
+
+  // Join user to their personal room (for compatibility with existing clients)
   socket.on('join-user-room', (userId: string) => {
     socket.join(`user-${userId}`);
     console.log(`User ${userId} joined their personal room`);

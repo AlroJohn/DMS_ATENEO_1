@@ -3,66 +3,61 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // Change to your DB provider (e.g., mysql)
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Account {
-  account_id                 String                     @id @default(uuid()) @db.Uuid
-  department_id              String?                    @db.Uuid
-  email                      String                     @unique
+  account_id                 String               @id @default(uuid()) @db.Uuid
+  department_id              String?              @db.Uuid
+  email                      String               @unique
   password                   String?
-  google_provider_id         String?                    @unique
-  microsoft_provider_id      String?                    @unique
-  is_active                  Boolean                    @default(true)
-  email_verified             Boolean                    @default(false)
+  google_provider_id         String?              @unique
+  microsoft_provider_id      String?              @unique
+  is_active                  Boolean              @default(true)
+  email_verified             Boolean              @default(false)
   last_login                 DateTime?
-  created_at                 DateTime                   @default(now())
-  updated_at                 DateTime                   @default(now()) @updatedAt
-  user                       User?
-  department                 Department?                @relation(fields: [department_id], references: [department_id])
-  // Session management relationships
-  sessions                   UserSession[]
-  session_logs               SessionLog[]
-  // Invitation relationships
-  sent_invitations           UserInvitation[]
-  // Password reset relationships
+  created_at                 DateTime             @default(now())
+  updated_at                 DateTime             @default(now()) @updatedAt
+  department                 Department?          @relation(fields: [department_id], references: [department_id])
+  documents_checked_out      Document[]           @relation("DocumentCheckedOutBy")
+  documents_restored         Document[]           @relation("DocumentRestoredBy")
+  document_files             DocumentFile[]       @relation("AccountUploadedFiles")
   password_reset_tokens      PasswordResetToken[]
-  NotificationSubscription   NotificationSubscription[]
-  UserFeedback               UserFeedback[]
-  // Permission system relationships
-  roles_created              Role[]                     @relation("RoleCreatedBy")
-  roles_updated              Role[]                     @relation("RoleUpdatedBy")
+  permission_audit_performed PermissionAuditLog[] @relation("PermissionAuditPerformedBy")
+  roles_created              Role[]               @relation("RoleCreatedBy")
+  roles_updated              Role[]               @relation("RoleUpdatedBy")
   role_permissions_granted   RolePermission[]
-  user_role_assignments      UserRole[]                 @relation("UserRoleAssignedBy")
-  user_permissions_granted   UserPermission[]           @relation("UserPermissionGrantedBy")
-  permission_audit_performed PermissionAuditLog[]       @relation("PermissionAuditPerformedBy")
-  document_files             DocumentFile[]             @relation("AccountUploadedFiles")
-  documents_checked_out      Document[]                 @relation("DocumentCheckedOutBy")
-  // Document restore relationships  
-  documents_restored         Document[]                 @relation("DocumentRestoredBy")
   saved_searches             SavedSearch[]
+  session_logs               SessionLog[]
+  user                       User?
+  UserFeedback               UserFeedback[]
+  sent_invitations           UserInvitation[]
+  user_permissions_granted   UserPermission[]     @relation("UserPermissionGrantedBy")
+  user_role_assignments      UserRole[]           @relation("UserRoleAssignedBy")
+  sessions                   UserSession[]
 }
 
 model User {
-  user_id                 String               @id @default(uuid()) @db.Uuid
-  account_id              String               @unique @db.Uuid
-  department_id           String               @db.Uuid
-  first_name              String
-  last_name               String
-  middle_name             String?
-  user_name               String?              @unique
-  title                   String?
-  type                    String?
-  avatar                  String?
-  active                  Boolean              @default(true)
-  created_at              DateTime             @default(now())
-  updated_at              DateTime             @default(now()) @updatedAt
-  account                 Account              @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
-  // Permission system relationships
-  user_roles              UserRole[]
-  user_permissions        UserPermission[]
-  permission_audit_target PermissionAuditLog[] @relation("PermissionAuditTargetUser")
+  user_id                    String                     @id @default(uuid()) @db.Uuid
+  account_id                 String                     @unique @db.Uuid
+  department_id              String                     @db.Uuid
+  first_name                 String
+  last_name                  String
+  middle_name                String?
+  user_name                  String?                    @unique
+  title                      String?
+  type                       String?
+  avatar                     String?
+  active                     Boolean                    @default(true)
+  created_at                 DateTime                   @default(now())
+  updated_at                 DateTime                   @default(now()) @updatedAt
+  notifications              Notification[]
+  notification_subscriptions NotificationSubscription[]
+  permission_audit_target    PermissionAuditLog[]       @relation("PermissionAuditTargetUser")
+  account                    Account                    @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
+  user_permissions           UserPermission[]
+  user_roles                 UserRole[]
 }
 
 model Department {
@@ -73,32 +68,28 @@ model Department {
   created_at    DateTime         @default(now())
   created_by    String           @db.Uuid
   updated_at    DateTime         @default(now()) @updatedAt
-  // Invitation relationships
-  invitations   UserInvitation[]
   Account       Account[]
+  invitations   UserInvitation[]
 }
 
 model Document {
-  document_id         String            @id @default(uuid()) @db.Uuid
-  title               String
-  description         String?
-  document_code       String            @unique
-  document_type       String
-  classification      DocClassification @default(simple)
-  origin              DocOrigin         @default(external)
-  status              DocStatus         @default(dispatch)
-  created_at          DateTime          @default(now())
-  updated_at          DateTime          @default(now()) @updatedAt
-  deleted_at          DateTime?
-  restored_at         DateTime? // Timestamp when document was restored from recycle bin
-  restored_by         String?           @db.Uuid // User ID who restored the document from the recycle bin
-  restored_by_account Account?          @relation(fields: [restored_by], references: [account_id], name: "DocumentRestoredBy")
-
-  // Checkout fields
-  checked_out_at         DateTime?
-  checked_out_by         String?   @db.Uuid
-  checked_out_by_account Account?  @relation("DocumentCheckedOutBy", fields: [checked_out_by], references: [account_id])
-
+  document_id               String                      @id @default(uuid()) @db.Uuid
+  title                     String
+  description               String?
+  document_code             String                      @unique
+  document_type             String
+  classification            DocClassification           @default(simple)
+  origin                    DocOrigin                   @default(external)
+  status                    DocStatus                   @default(dispatch)
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime                    @default(now()) @updatedAt
+  deleted_at                DateTime?
+  restored_at               DateTime?
+  restored_by               String?                     @db.Uuid
+  checked_out_at            DateTime?
+  checked_out_by            String?                     @db.Uuid
+  checked_out_by_account    Account?                    @relation("DocumentCheckedOutBy", fields: [checked_out_by], references: [account_id])
+  restored_by_account       Account?                    @relation("DocumentRestoredBy", fields: [restored_by], references: [account_id])
   DocumentAdditionalDetails DocumentAdditionalDetails[]
   files                     DocumentFile[]              @relation("DocumentFiles")
 }
@@ -106,24 +97,24 @@ model Document {
 model DocumentAdditionalDetails {
   detail_id               String    @id @default(uuid()) @db.Uuid
   document_id             String    @db.Uuid
-  received_by             String?   @db.Uuid // User ID who received/acknowledged the document
-  work_flow_id            Json? // Array of department IDs tracking document routing path: [origin_dept_id, dest_dept_1_id, dest_dept_2_id, ...]. First element is the originating department.
-  received_by_departments Json? // Array of department IDs that have received/acknowledged this document: ["dept_id_1", "dept_id_2"]
-  blockchain_project_uuid String? // DOCONCHAIN project UUID after signing
-  blockchain_tx_hash      String? // Blockchain transaction hash
-  blockchain_status       String? // Signing status: 'pending', 'signed', 'failed', null
-  blockchain_redirect_url String? // URL to launch DocOnChain signing session
-  signed_at               DateTime? // Timestamp when document was signed
-  signed_by               String?   @db.Uuid // User ID who signed the document
+  received_by             String?   @db.Uuid
+  work_flow_id            Json?
+  received_by_departments Json?
+  blockchain_project_uuid String?
+  blockchain_tx_hash      String?
+  blockchain_status       String?
+  blockchain_redirect_url String?
+  signed_at               DateTime?
+  signed_by               String?   @db.Uuid
   remarks                 String?
   deleted_by              String?   @db.Uuid
-  restored_by             String?   @db.Uuid // User ID who restored the document from the recycle bin
+  restored_by             String?   @db.Uuid
   created_at              DateTime  @default(now())
   updated_at              DateTime  @default(now()) @updatedAt
   deleted_at              DateTime?
-  restored_at             DateTime? // Timestamp when document was restored from recycle bin
-  Document                Document  @relation(fields: [document_id], references: [document_id], onDelete: Cascade)
+  restored_at             DateTime?
   account_id              String?   @db.Uuid
+  Document                Document  @relation(fields: [document_id], references: [document_id], onDelete: Cascade)
 
   @@index([document_id])
 }
@@ -151,7 +142,7 @@ model DocumentAction {
 
 model DocumentMetadata {
   metadata_id       String        @id @default(uuid()) @db.Uuid
-  file_id           String        @unique @db.Uuid // Changed to reference DocumentFile
+  file_id           String        @unique @db.Uuid
   file_size         BigInt?
   file_type         String?
   mime_type         String?
@@ -161,9 +152,9 @@ model DocumentMetadata {
   creation_date     DateTime?
   modification_date DateTime?
   security_level    SecurityLevel @default(public)
-  retention_period  Int? // in days
+  retention_period  Int?
   is_encrypted      Boolean       @default(false)
-  checksum          String? // for file integrity
+  checksum          String?
   version           String        @default("1.0")
   created_at        DateTime      @default(now())
   updated_at        DateTime      @default(now()) @updatedAt
@@ -171,35 +162,51 @@ model DocumentMetadata {
 }
 
 model DocumentFile {
-  file_id       String   @id @default(uuid()) @db.Uuid
-  document_id   String   @db.Uuid
-  original_name String
-  stored_name   String
-  storage_path  String
-  file_size     BigInt
-  mime_type     String
-  checksum      String?
-  version       String   @default("1.0")
-  is_primary    Boolean  @default(false)
-  uploaded_by   String   @db.Uuid
-  uploaded_at   DateTime @default(now())
-  updated_at    DateTime @default(now()) @updatedAt
-
+  file_id             String            @id @default(uuid()) @db.Uuid
+  document_id         String            @db.Uuid
+  original_name       String
+  stored_name         String
+  storage_path        String
+  file_size           BigInt
+  mime_type           String
+  checksum            String?
+  version             String            @default("1.0")
+  is_primary          Boolean           @default(false)
+  uploaded_by         String            @db.Uuid
+  uploaded_at         DateTime          @default(now())
+  updated_at          DateTime          @default(now()) @updatedAt
   Document            Document          @relation("DocumentFiles", fields: [document_id], references: [document_id], onDelete: Cascade)
-  DocumentMetadata    DocumentMetadata?
   uploaded_by_account Account           @relation("AccountUploadedFiles", fields: [uploaded_by], references: [account_id])
+  DocumentMetadata    DocumentMetadata?
 
   @@index([document_id])
   @@index([uploaded_by])
 }
 
+model Notification {
+  notification_id String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+  title           String
+  message         String
+  type            String
+  workflow_event  String?
+  is_read         Boolean   @default(false)
+  is_deleted      Boolean   @default(false)
+  metadata        Json?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @default(now()) @updatedAt
+  read_at         DateTime?
+  user            User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+}
+
 model NotificationSubscription {
-  id         String  @id @default(uuid()) @db.Uuid
-  account_id String  @db.Uuid
-  endpoint   String
-  p256dh     String
-  auth       String
-  account    Account @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
+  subscription_id   String   @id @default(uuid()) @db.Uuid
+  user_id           String   @db.Uuid
+  notification_type String
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @default(now()) @updatedAt
+  user              User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 }
 
 model UserFeedback {
@@ -210,7 +217,6 @@ model UserFeedback {
   account       Account  @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
 }
 
-// Saved search functionality
 model SavedSearch {
   search_id          String   @id @default(uuid()) @db.Uuid
   name               String
@@ -225,33 +231,28 @@ model SavedSearch {
   is_favorite        Boolean  @default(false)
   is_scheduled       Boolean  @default(false)
   schedule_frequency String?
-
-  // Relationships
-  creator Account @relation(fields: [created_by], references: [account_id], onDelete: Cascade)
+  creator            Account  @relation(fields: [created_by], references: [account_id], onDelete: Cascade)
 }
 
-// Role-based access control system
 model Role {
   role_id                 String               @id @default(uuid()) @db.Uuid
   name                    String               @unique
-  code                    String               @unique // Short code for the role (e.g., "ADMIN1", "ADMIN2")
+  code                    String               @unique
   description             String?
-  is_system_role          Boolean              @default(false) // System roles cannot be deleted
+  is_system_role          Boolean              @default(false)
   is_active               Boolean              @default(true)
   created_at              DateTime             @default(now())
   updated_at              DateTime             @default(now()) @updatedAt
   created_by              String               @db.Uuid
   updated_by              String?              @db.Uuid
-  // Relationships
+  permission_audit_target PermissionAuditLog[]
   created_by_account      Account              @relation("RoleCreatedBy", fields: [created_by], references: [account_id])
   updated_by_account      Account?             @relation("RoleUpdatedBy", fields: [updated_by], references: [account_id])
   role_permissions        RolePermission[]
-  user_roles              UserRole[]
-  permission_audit_target PermissionAuditLog[]
   invitations             UserInvitation[]
+  user_roles              UserRole[]
 }
 
-// Permission definitions
 model PermissionDefinition {
   permission_id         String               @id @default(uuid()) @db.Uuid
   permission            Permission           @unique
@@ -260,13 +261,11 @@ model PermissionDefinition {
   is_active             Boolean              @default(true)
   created_at            DateTime             @default(now())
   updated_at            DateTime             @default(now()) @updatedAt
-  // Relationships
+  permission_audit_logs PermissionAuditLog[]
   role_permissions      RolePermission[]
   user_permissions      UserPermission[]
-  permission_audit_logs PermissionAuditLog[]
 }
 
-// Role-Permission mapping
 model RolePermission {
   id                 String               @id @default(uuid()) @db.Uuid
   role_id            String               @db.Uuid
@@ -274,34 +273,30 @@ model RolePermission {
   scope              PermissionScope      @default(department)
   granted_by         String               @db.Uuid
   granted_at         DateTime             @default(now())
-  expires_at         DateTime? // Optional expiration
+  expires_at         DateTime?
   is_active          Boolean              @default(true)
-  // Relationships
-  role               Role                 @relation(fields: [role_id], references: [role_id], onDelete: Cascade)
-  permission         PermissionDefinition @relation(fields: [permission_id], references: [permission_id], onDelete: Cascade)
   granted_by_account Account              @relation(fields: [granted_by], references: [account_id])
+  permission         PermissionDefinition @relation(fields: [permission_id], references: [permission_id], onDelete: Cascade)
+  role               Role                 @relation(fields: [role_id], references: [role_id], onDelete: Cascade)
 
   @@unique([role_id, permission_id, scope])
 }
 
-// User-Role mapping
 model UserRole {
   id                  String    @id @default(uuid()) @db.Uuid
   user_id             String    @db.Uuid
   role_id             String    @db.Uuid
   assigned_by         String    @db.Uuid
   assigned_at         DateTime  @default(now())
-  expires_at          DateTime? // Optional expiration
+  expires_at          DateTime?
   is_active           Boolean   @default(true)
-  // Relationships
-  user                User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  role                Role      @relation(fields: [role_id], references: [role_id], onDelete: Cascade)
   assigned_by_account Account   @relation("UserRoleAssignedBy", fields: [assigned_by], references: [account_id])
+  role                Role      @relation(fields: [role_id], references: [role_id], onDelete: Cascade)
+  user                User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
   @@unique([user_id, role_id])
 }
 
-// Direct user permissions (override role permissions)
 model UserPermission {
   id                 String               @id @default(uuid()) @db.Uuid
   user_id            String               @db.Uuid
@@ -309,17 +304,15 @@ model UserPermission {
   scope              PermissionScope      @default(department)
   granted_by         String               @db.Uuid
   granted_at         DateTime             @default(now())
-  expires_at         DateTime? // Optional expiration
+  expires_at         DateTime?
   is_active          Boolean              @default(true)
-  // Relationships
-  user               User                 @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  permission         PermissionDefinition @relation(fields: [permission_id], references: [permission_id], onDelete: Cascade)
   granted_by_account Account              @relation("UserPermissionGrantedBy", fields: [granted_by], references: [account_id])
+  permission         PermissionDefinition @relation(fields: [permission_id], references: [permission_id], onDelete: Cascade)
+  user               User                 @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
   @@unique([user_id, permission_id, scope])
 }
 
-// Permission audit log
 model PermissionAuditLog {
   audit_id                          String                @id @default(uuid()) @db.Uuid
   action                            PermissionAction
@@ -328,67 +321,101 @@ model PermissionAuditLog {
   permission_id                     String?               @db.Uuid
   performed_by                      String                @db.Uuid
   performed_at                      DateTime              @default(now())
-  old_values                        String? // JSON string of previous values
-  new_values                        String? // JSON string of new values
+  old_values                        String?
+  new_values                        String?
   ip_address                        String?
   user_agent                        String?
-  // Relationships
-  target_user                       User?                 @relation("PermissionAuditTargetUser", fields: [target_user_id], references: [user_id])
-  target_role                       Role?                 @relation(fields: [target_role_id], references: [role_id])
+  permissionDefinitionPermission_id String?               @db.Uuid
   performed_by_account              Account               @relation("PermissionAuditPerformedBy", fields: [performed_by], references: [account_id])
   PermissionDefinition              PermissionDefinition? @relation(fields: [permissionDefinitionPermission_id], references: [permission_id])
-  permissionDefinitionPermission_id String?               @db.Uuid
+  target_role                       Role?                 @relation(fields: [target_role_id], references: [role_id])
+  target_user                       User?                 @relation("PermissionAuditTargetUser", fields: [target_user_id], references: [user_id])
 }
 
-// User Session Management
 model UserSession {
   session_id         String        @id @default(uuid()) @db.Uuid
   account_id         String        @db.Uuid
-  session_token      String        @unique // This goes in the cookie
-  refresh_token      String?       @unique // For refresh token rotation
-  device_info        String? // JSON: device, browser, OS info
+  session_token      String        @unique
+  refresh_token      String?       @unique
+  device_info        String?
   ip_address         String?
   user_agent         String?
-  location           String? // Geographic location if available
+  location           String?
   is_active          Boolean       @default(true)
-  expires_at         DateTime // Session expiration
-  refresh_expires_at DateTime? // Refresh token expiration
+  expires_at         DateTime
+  refresh_expires_at DateTime?
   last_activity      DateTime      @default(now())
   created_at         DateTime      @default(now())
   updated_at         DateTime      @default(now()) @updatedAt
-  // Security fields
   login_method       LoginMethod   @default(password)
   mfa_verified       Boolean       @default(false)
   mfa_method         MfaMethod?
   security_level     SecurityLevel @default(internal)
-  // Relationships
-  account            Account       @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
   session_logs       SessionLog[]
+  account            Account       @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
 
   @@index([account_id])
   @@index([session_token])
   @@index([expires_at])
 }
 
-// Session Activity Logging
 model SessionLog {
   log_id     String        @id @default(uuid()) @db.Uuid
   session_id String        @db.Uuid
   account_id String        @db.Uuid
   action     SessionAction
-  details    String? // JSON: additional details
+  details    String?
   ip_address String?
   user_agent String?
   location   String?
-  risk_score Int? // Security risk assessment (0-100)
+  risk_score Int?
   created_at DateTime      @default(now())
-  // Relationships
-  session    UserSession   @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
   account    Account       @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
+  session    UserSession   @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
 
   @@index([session_id])
   @@index([account_id])
   @@index([created_at])
+}
+
+model UserInvitation {
+  invitation_id      String           @id @default(uuid()) @db.Uuid
+  email              String
+  first_name         String
+  last_name          String
+  department_id      String           @db.Uuid
+  role_id            String           @db.Uuid
+  invited_by         String           @db.Uuid
+  invitation_token   String           @unique
+  expires_at         DateTime
+  accepted_at        DateTime?
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @default(now()) @updatedAt
+  status             InvitationStatus @default(pending)
+  department         Department       @relation(fields: [department_id], references: [department_id])
+  invited_by_account Account          @relation(fields: [invited_by], references: [account_id])
+  role               Role             @relation(fields: [role_id], references: [role_id])
+
+  @@index([invitation_token])
+  @@index([email])
+  @@index([expires_at])
+}
+
+model PasswordResetToken {
+  token_id   String    @id @default(uuid()) @db.Uuid
+  account_id String    @db.Uuid
+  token      String    @unique
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now()) @updatedAt
+  ip_address String?
+  user_agent String?
+  account    Account   @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([account_id])
+  @@index([expires_at])
 }
 
 enum DocClassification {
@@ -445,7 +472,6 @@ enum LogAction {
   custody_changed
   verified
   tampered
-  // Recycle bin actions
   moved_to_recycle_bin
   restored_from_recycle_bin
   permanently_deleted
@@ -479,7 +505,6 @@ enum StorageProvider {
   dropbox
 }
 
-// Tamper-evident audit trail enums
 enum LogSeverity {
   info
   warning
@@ -541,7 +566,6 @@ enum TransferStatus {
   returned
 }
 
-// Recycle bin enums
 enum RecycleBinStatus {
   deleted
   restored
@@ -559,9 +583,7 @@ enum DeletionReason {
   duplicate_removal
 }
 
-// Permission system enums
 enum Permission {
-  // Document permissions
   document_read
   document_write
   document_edit
@@ -574,106 +596,74 @@ enum Permission {
   document_restore
   document_move
   document_copy
-
-  //Document action permissions
   document_action_read
   document_action_create
   document_action_edit
   document_action_delete
-
-  // Document metadata permissions
   document_metadata_read
   document_metadata_write
   document_metadata_edit
-
-  // Document routing permissions
   document_routing_read
   document_routing_create
   document_routing_edit
   document_routing_delete
   document_routing_approve
-
-  // Document transfer permissions
   document_transfer_initiate
   document_transfer_approve
   document_transfer_receive
   document_transfer_reject
   document_transfer_track
-
-  // Document custody permissions
   document_custody_view
   document_custody_transfer
   document_custody_receive
   document_custody_witness
-
-  // Document audit permissions
   document_audit_read
   document_audit_export
   document_audit_verify
-
-  // Document recycle bin permissions
   document_recycle_view
   document_recycle_restore
   document_recycle_permanent_delete
   document_recycle_bulk_restore
   document_recycle_bulk_delete
-
-  // Document type permissions
   document_type_read
   document_type_create
   document_type_edit
   document_type_delete
-
-  // Department permissions
   department_read
   department_create
   department_edit
   department_delete
   department_users_manage
-
-  // User management permissions
   user_read
   user_create
   user_edit
   user_delete
   user_activate
   user_deactivate
-
-  // Role management permissions
   role_read
   role_create
   role_edit
   role_delete
   role_assign
-
-  // Permission management
   permission_edit
   permission_create
   permission_delete
   permission_read
   permission_assign
   permission_revoke
-
-  // System administration
   system_settings_read
   system_settings_write
   system_logs_read
   system_backup
   system_restore
   system_maintenance
-
-  // Notification permissions
   notification_read
   notification_send
   notification_manage
-
-  // Report permissions
   report_read
   report_generate
   report_export
   report_schedule
-
-  // API permissions
   api_read
   api_write
   api_delete
@@ -701,10 +691,10 @@ enum ResourceType {
 }
 
 enum PermissionScope {
-  global // Access to all resources
-  department // Access within department only
-  user // Access to own resources only
-  custom // Custom scope defined by rules
+  global
+  department
+  user
+  custom
 }
 
 enum PermissionAction {
@@ -720,7 +710,6 @@ enum PermissionAction {
   role_deleted
 }
 
-// Session Management Enums
 enum LoginMethod {
   password
   google
@@ -754,54 +743,9 @@ enum SessionAction {
   concurrent_session
 }
 
-// User Invitation System
-model UserInvitation {
-  invitation_id      String           @id @default(uuid()) @db.Uuid
-  email              String
-  first_name         String
-  last_name          String
-  department_id      String           @db.Uuid
-  role_id            String           @db.Uuid
-  invited_by         String           @db.Uuid
-  invitation_token   String           @unique
-  expires_at         DateTime
-  accepted_at        DateTime?
-  created_at         DateTime         @default(now())
-  updated_at         DateTime         @default(now()) @updatedAt
-  status             InvitationStatus @default(pending)
-  // Relationships
-  department         Department       @relation(fields: [department_id], references: [department_id])
-  role               Role             @relation(fields: [role_id], references: [role_id])
-  invited_by_account Account          @relation(fields: [invited_by], references: [account_id])
-
-  @@index([invitation_token])
-  @@index([email])
-  @@index([expires_at])
-}
-
 enum InvitationStatus {
   pending
   accepted
   expired
   cancelled
-}
-
-// Password Reset Token System
-model PasswordResetToken {
-  token_id   String    @id @default(uuid()) @db.Uuid
-  account_id String    @db.Uuid
-  token      String    @unique
-  expires_at DateTime
-  used_at    DateTime?
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now()) @updatedAt
-  // Security fields
-  ip_address String?
-  user_agent String?
-  // Relationships
-  account    Account   @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([account_id])
-  @@index([expires_at])
 }
