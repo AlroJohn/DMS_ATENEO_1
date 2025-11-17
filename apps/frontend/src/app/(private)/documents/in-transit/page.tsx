@@ -71,7 +71,7 @@ export default function InTransitDocumentsPage() {
   }, [socket, refetchIncoming, refetchOutgoing]);
 
   return (
-    <div className="flex h-full flex-col gap-4 px-4 pb-4 bg-background">
+    <div className="flex h-full flex-col gap-4 bg-background">
       <Tabs
         defaultValue="incoming"
         className="w-full"

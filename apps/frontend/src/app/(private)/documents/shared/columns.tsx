@@ -14,10 +14,11 @@ export type SharedDocument = {
   qrCode?: string;
   barcode?: string;
   document: string;
+  documentTitle?: string;
   documentId?: string;
-  contactPerson?: string;  // Will now be the root owner of the document
+  contactPerson?: string; // Will now be the root owner of the document
   contactOrganization?: string;
-  type: string;  // Backend ensures this is always present after our changes
+  type: string; // Backend ensures this is always present after our changes
   classification?: string;
   status?: string;
   activity?: string;
@@ -31,11 +32,18 @@ export type SharedDocument = {
 };
 
 const formatText = (text: string | undefined): string => {
-  if (!text) return '';
+  if (!text) return "";
   return text
-    .replace(/_/g, ' ')
+    .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
+};
+
+const getDocumentTitle = (document: SharedDocument): string => {
+  if (document.documentTitle && document.documentTitle.length > 0) {
+    return document.documentTitle;
+  }
+  return document.document || "";
 };
 
 export const columns: ColumnDef<SharedDocument>[] = [
@@ -93,8 +101,8 @@ export const columns: ColumnDef<SharedDocument>[] = [
 
       return (
         <div className="flex flex-col gap-1.5 py-1 min-w-[180px] max-w-[240px]">
-          <div className="font-medium" title={d.document}>
-            {d.document}
+          <div className="font-medium" title={getDocumentTitle(d)}>
+            {getDocumentTitle(d)}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span
@@ -206,7 +214,7 @@ export const columns: ColumnDef<SharedDocument>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => {
-      const status = row.original.status?.toLowerCase() || '';
+      const status = row.original.status?.toLowerCase() || "";
 
       // Define status styling for shared documents
       const statusConfig: {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface Document {
   id: string;
@@ -42,7 +42,7 @@ export function useDocumentsOwned(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -79,11 +79,11 @@ export function useDocumentsOwned(
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, limit]);
 
   useEffect(() => {
     fetchDocuments();
-  }, [page, limit]);
+  }, [fetchDocuments]);
 
   return {
     documents,
@@ -93,4 +93,3 @@ export function useDocumentsOwned(
     refetch: fetchDocuments,
   };
 }
-
