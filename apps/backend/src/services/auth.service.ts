@@ -102,6 +102,7 @@ export class AuthService {
       data: {
         email: data.email,
         password: hashedPassword,
+        department_id: defaultDepartment.department_id, // Set department_id for account consistency
         email_verified: false,
         is_active: true,
         last_login: new Date(),
@@ -416,6 +417,7 @@ export class AuthService {
         data: {
           email: googleData.email,
           google_provider_id: googleData.googleId,
+          department_id: defaultDepartment.department_id, // Set department_id for account consistency
           email_verified: true, // Google emails are pre-verified
           is_active: true,
           last_login: new Date(),
