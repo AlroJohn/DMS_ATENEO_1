@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { extractDocumentInfo } from "@/lib/utils";
 
 export default function NotificationsPage() {
   const [frequency, setFrequency] = useState("immediate");
@@ -161,7 +162,26 @@ export default function NotificationsPage() {
                             <div className="flex items-start justify-between">
                               <div>
                                 <h4 className="font-semibold">{notification.title}</h4>
-                                <p className="text-muted-foreground text-sm mt-1">{notification.message}</p>
+                                <div className="text-muted-foreground text-sm mt-1">
+                                  {(() => {
+                                    const { name: documentName, code: documentCode } = extractDocumentInfo(notification.message);
+                                    return (
+                                      <>
+                                        {documentName && (
+                                          <span className="font-medium block">{documentName}</span>
+                                        )}
+                                        {documentCode && (
+                                          <span className="inline-block mt-1 px-2 py-0.5 bg-muted rounded text-xs font-mono">
+                                            {documentCode}
+                                          </span>
+                                        )}
+                                        {!documentName && !documentCode && (
+                                          <span>{notification.message}</span>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                               {!notification.is_read && (
                                 <Badge variant="default" className="ml-2">

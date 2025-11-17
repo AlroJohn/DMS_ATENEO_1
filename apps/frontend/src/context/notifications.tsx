@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useSocket } from "@/components/providers/providers";
 import { toast } from "sonner";
+import { extractDocumentInfo } from "@/lib/utils";
 
 export type AppNotification = {
   id: string;
@@ -12,6 +13,8 @@ export type AppNotification = {
   timestamp: string;
   read: boolean;
   workflowEvent?: string; // Specific workflow event type (e.g., "document_shared", "document_released", "document_completed")
+  documentName?: string;
+  documentCode?: string;
 };
 
 interface NotificationsContextType {
@@ -117,15 +120,20 @@ export const NotificationsProvider = ({
       const data = await response.json();
       
       // Convert API response to our AppNotification format
-      const formattedNotifications: AppNotification[] = data.data.map((n: any) => ({
-        id: n.notification_id,
-        type: n.type as AppNotification["type"],
-        title: n.title,
-        message: n.message,
-        timestamp: n.created_at || n.timestamp,
-        read: n.is_read || n.read || false,
-        workflowEvent: n.workflow_event || n.workflowEvent || undefined,
-      }));
+      const formattedNotifications: AppNotification[] = data.data.map((n: any) => {
+        const { name: documentName, code: documentCode } = extractDocumentInfo(n.message);
+        return {
+          id: n.notification_id,
+          type: n.type as AppNotification["type"],
+          title: n.title,
+          message: n.message,
+          timestamp: n.created_at || n.timestamp,
+          read: n.is_read || n.read || false,
+          workflowEvent: n.workflow_event || n.workflowEvent || undefined,
+          documentName,
+          documentCode,
+        };
+      });
 
       setNotifications(formattedNotifications);
     } catch (error) {

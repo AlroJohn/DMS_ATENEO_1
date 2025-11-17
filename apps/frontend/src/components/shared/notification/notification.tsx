@@ -13,18 +13,9 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { useNotifications } from '@/context/notifications'
+import { useNotifications, AppNotification } from '@/context/notifications'
 
-interface Notification {
-  id: string
-  type: "document" | "invitation" | "system" | "workflow"
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  workflowEvent?: string; // Specific workflow event type (e.g., "document_shared", "document_released", "document_completed")
-  icon?: React.ReactNode
-}
+type Notification = AppNotification;
 
 interface NotificationSheetProps {
   open: boolean
@@ -125,9 +116,19 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
                             <p className="text-sm font-semibold leading-tight truncate">
                               {notification.title}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {notification.message}
-                            </p>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {notification.documentName && (
+                                <span className="font-medium truncate block">{notification.documentName}</span>
+                              )}
+                              {notification.documentCode && (
+                                <span className="inline-block mt-1 px-2 py-0.5 bg-muted rounded text-xs font-mono">
+                                  {notification.documentCode}
+                                </span>
+                              )}
+                              {!notification.documentName && !notification.documentCode && (
+                                <span className="line-clamp-2">{notification.message}</span>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground mt-2">
                               {new Date(notification.timestamp).toLocaleString()}
                             </p>
