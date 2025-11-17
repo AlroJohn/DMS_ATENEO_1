@@ -343,67 +343,6 @@ async function main() {
         }
       }
 
-      // Create sample documents with realistic workflows between departments
-      console.log('\n📄 Creating sample documents with workflow assignments...');
-      const sampleDocuments = [
-        {
-          title: 'Annual Budget Report 2025',
-          description: 'Comprehensive budget report for fiscal year 2025',
-          document_type: 'Report',
-          classification: 'complex',
-          origin: 'internal',
-          status: 'intransit'
-        },
-        {
-          title: 'Employee Handbook Update',
-          description: 'Updated employee handbook with new policies',
-          document_type: 'Memorandum',
-          classification: 'simple',
-          origin: 'internal',
-          status: 'intransit'
-        },
-        {
-          title: 'IT Infrastructure Proposal',
-          description: 'Proposal for upgrading IT infrastructure',
-          document_type: 'Report',
-          classification: 'highly_technical',
-          origin: 'internal',
-          status: 'dispatch'
-        },
-        {
-          title: 'Vendor Service Agreement',
-          description: 'Service level agreement with external vendor',
-          document_type: 'Contract',
-          classification: 'complex',
-          origin: 'external',
-          status: 'completed'
-        },
-        {
-          title: 'Department Meeting Minutes',
-          description: 'Minutes from monthly department meeting',
-          document_type: 'Memorandum',
-          classification: 'simple',
-          origin: 'internal',
-          status: 'intransit'
-        },
-        {
-          title: 'Security Policy Review',
-          description: 'Review of current security policies and recommendations',
-          document_type: 'Report',
-          classification: 'highly_technical',
-          origin: 'internal',
-          status: 'intransit'
-        },
-        {
-          title: 'Q4 Financial Statement',
-          description: 'Quarterly financial statement for review',
-          document_type: 'Report',
-          classification: 'complex',
-          origin: 'internal',
-          status: 'intransit'
-        }
-      ];
-
       // Create sample users for different departments to make the system more realistic
       console.log('\n👥 Creating sample users for different departments...');
       const sampleUsers = [];
@@ -433,41 +372,6 @@ async function main() {
         sampleUsers.push(user);
       }
 
-      for (let i = 0; i < sampleDocuments.length; i++) {
-        const docData = sampleDocuments[i];
-        const originatingDept = createdDepartments[i % createdDepartments.length];
-        // Create a workflow with 2-4 departments to simulate realistic document routing
-        const numDepartmentsInWorkflow = Math.min(2 + (i % 3), createdDepartments.length); // 2-4 departments
-        const workflow = [];
-        for (let j = 0; j < numDepartmentsInWorkflow; j++) {
-          workflow.push(createdDepartments[(i + j) % createdDepartments.length].department_id);
-        }
-
-        const document = await tx.document.create({
-          data: {
-            title: docData.title,
-            description: docData.description,
-            document_code: `DOC-2025-${String(i + 1).padStart(4, '0')}`,
-            document_type: docData.document_type,
-            classification: docData.classification as any,
-            origin: docData.origin as any,
-            status: docData.status as any
-          }
-        });
-
-        // Create DocumentAdditionalDetails with the workflow
-        await tx.documentAdditionalDetails.create({
-          data: {
-            document_id: document.document_id,
-            work_flow_id: workflow as any, // Array of department IDs
-            remarks: `Sample document with workflow: ${workflow.join(', ')}`
-          }
-        });
-
-        console.log(`✅ Created document: ${document.title} with workflow through ${workflow.length} departments`);
-      }
-
-      console.log(`\n✅ Created ${sampleDocuments.length} sample documents with realistic workflows between departments`);
     });
   } catch (error) {
     console.error('❌ Error during seeding:', error);
@@ -483,3 +387,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+      console.log('\n? Sample users created without generating placeholder documents.');
