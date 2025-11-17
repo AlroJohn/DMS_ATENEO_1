@@ -32,6 +32,7 @@ import recycleBinRoutes from './routes/recyclebin.routes';
 import sharedDocumentRoutes from './routes/shared-document.routes';
 import documentMetadataRoutes from './routes/document-metadata.routes'; // Import the new route
 import notificationsRoutes from './routes/notifications'; // Import notifications route
+import archiveRoutes from './routes/archive.routes'; // Import archive routes
 
 // Import middleware
 import { requestLogger, errorLogger } from './middleware/logging';
@@ -153,6 +154,7 @@ app.use('/api/recycle-bin', recycleBinRoutes);
 app.use('/api/shared', sharedDocumentRoutes);
 app.use('/api/document-metadata', documentMetadataRoutes); // Add the new route
 app.use('/api/notifications', notificationsRoutes); // Add notifications route
+app.use('/api/archive', archiveRoutes); // Add archive routes
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

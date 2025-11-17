@@ -13,6 +13,7 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
+  Archive,
   Copy,
   Shield,
 } from "lucide-react";
@@ -163,7 +164,7 @@ export function DataTableRowActions<TData>({
   const handleDelete = async () => {
     try {
       setIsLoading(true);
-      
+
       const response = await fetch(`/api/documents/${document.id}`, {
         method: 'DELETE',
         credentials: 'include',
@@ -187,6 +188,38 @@ export function DataTableRowActions<TData>({
     } catch (error: any) {
       console.error("Error deleting document:", error);
       toast.error(error.message || "Failed to delete document.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(`/api/archive/${document.id}/archive`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to archive document';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Document successfully archived.");
+    } catch (error: any) {
+      console.error("Error archiving document:", error);
+      toast.error(error.message || "Failed to archive document.");
     } finally {
       setIsLoading(false);
     }
@@ -251,6 +284,11 @@ export function DataTableRowActions<TData>({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
+
+          <DropdownMenuItem onClick={(e) => handleAction(e, handleArchive)}>
+            <Archive className="mr-2 h-4 w-4" />
+            Archive
+          </DropdownMenuItem>
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
