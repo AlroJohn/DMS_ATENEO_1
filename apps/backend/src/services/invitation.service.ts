@@ -208,6 +208,7 @@ export class InvitationService {
         data: {
           email: invitation.email,
           password: hashedPassword,
+          department_id: invitation.department_id, // Set department_id for consistency
           email_verified: true,
           is_active: true,
           last_login: new Date(),

@@ -226,7 +226,7 @@ const UserManagementPage = () => {
                         <TableCell>
                           <div className="flex flex-col gap-1">
                             <Badge
-                              variant={user.active && user.account.is_active ? "default" : "destructive"}
+                              className={user.active && user.account.is_active ? "bg-green-500 hover:bg-green-500 text-white" : "bg-red-500 hover:bg-red-500 text-white"}
                             >
                               {user.active && user.account.is_active ? "Active" : "Inactive"}
                             </Badge>
