@@ -103,6 +103,70 @@ export class RecycleBinService {
         };
       }
 
+      const parseWorkflowDepartments = (workflow: any): string[] => {
+        if (!workflow) return [];
+
+        try {
+          if (Array.isArray(workflow)) {
+            return workflow as string[];
+          }
+
+          if (typeof workflow === 'string') {
+            const parsed = JSON.parse(workflow);
+            return Array.isArray(parsed) ? parsed : Object.values(parsed);
+          }
+
+          if (typeof workflow === 'object' && workflow !== null) {
+            return Object.values(workflow as Record<string, string>);
+          }
+        } catch (error) {
+          console.error('?? [getRecycleBinDocuments] Error parsing work_flow_id:', error);
+        }
+
+        return [];
+      };
+
+      const departmentNameCache = new Map<string, string>();
+      const accountNameCache = new Map<string, string>();
+
+      const getDepartmentName = async (departmentId?: string | null) => {
+        if (!departmentId) return 'N/A';
+        if (departmentNameCache.has(departmentId)) {
+          return departmentNameCache.get(departmentId)!;
+        }
+
+        const department = await prisma.department.findUnique({
+          where: { department_id: departmentId },
+          select: { name: true }
+        });
+
+        const departmentName = department?.name ?? 'N/A';
+        departmentNameCache.set(departmentId, departmentName);
+        return departmentName;
+      };
+
+      const getAccountOwnerName = async (accountId?: string | null) => {
+        if (!accountId) return 'N/A';
+        if (accountNameCache.has(accountId)) {
+          return accountNameCache.get(accountId)!;
+        }
+
+        const ownerAccount = await prisma.account.findUnique({
+          where: { account_id: accountId },
+          select: {
+            user: {
+              select: { first_name: true, last_name: true }
+            }
+          }
+        });
+
+        const ownerName = ownerAccount?.user
+          ? `${ownerAccount.user.first_name} ${ownerAccount.user.last_name}`
+          : 'N/A';
+        accountNameCache.set(accountId, ownerName);
+        return ownerName;
+      };
+
       // Get deleted documents
       const [documents, total] = await Promise.all([
         prisma.document.findMany({
@@ -144,6 +208,24 @@ export class RecycleBinService {
 
       const transformedDocuments = await Promise.all(
         documents.map(async (doc) => {
+          const detail = doc.DocumentAdditionalDetails?.[0];
+          const workflowDepartments = detail ? parseWorkflowDepartments(detail.work_flow_id) : [];
+          const originatorDeptId = workflowDepartments.length > 0 ? workflowDepartments[0] : null;
+          const contactOrganization = await getDepartmentName(originatorDeptId);
+
+          let contactPerson = 'N/A';
+          if (doc.files && doc.files.length > 0) {
+            const sortedFiles = [...doc.files].sort(
+              (a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime()
+            );
+            const firstFile = sortedFiles[0];
+            if (firstFile?.uploaded_by) {
+              contactPerson = await getAccountOwnerName(firstFile.uploaded_by);
+            }
+          } else if (detail?.account_id) {
+            contactPerson = await getAccountOwnerName(detail.account_id);
+          }
+
           // Generate QR code
           let qrCode = '';
           try {
@@ -169,11 +251,6 @@ export class RecycleBinService {
           } catch (err) {
             console.error('Barcode generation error:', err);
           }
-
-          // Get the first document additional detail record
-          const detail = doc.DocumentAdditionalDetails && doc.DocumentAdditionalDetails.length > 0
-            ? doc.DocumentAdditionalDetails[0]
-            : null;
 
           // Get deleted by user info if deleted_by exists
           let deletedByInfo = 'N/A';
@@ -227,8 +304,8 @@ export class RecycleBinService {
             barcode,
             document: doc.title || 'Untitled',
             documentId: doc.document_code || doc.document_id,
-            contactPerson: 'N/A',
-            contactOrganization: 'N/A',
+            contactPerson,
+            contactOrganization,
             currentLocation: 'Recycle Bin',
             type: documentTypeMap.get(doc.document_type) || (doc as any).document_type || 'General',
             classification: doc.classification,

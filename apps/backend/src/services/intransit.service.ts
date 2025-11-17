@@ -57,6 +57,10 @@ export class IntransitService {
           received_by_departments: true
         }
       });
+      const documentDetailsMap = new Map<string, any>();
+      documentDetails.forEach((detail: any) => {
+        documentDetailsMap.set(detail.document_id, detail);
+      });
 
       // Filter documents that are incoming to user's department
       // Incoming means: department is in workflow AND NOT the originator AND NOT yet received
@@ -129,6 +133,46 @@ export class IntransitService {
         };
       }
 
+      const departmentNameCache = new Map<string, string>();
+      const accountNameCache = new Map<string, string>();
+
+      const getDepartmentName = async (departmentId?: string | null) => {
+        if (!departmentId) return 'N/A';
+        if (departmentNameCache.has(departmentId)) {
+          return departmentNameCache.get(departmentId)!;
+        }
+
+        const department = await prisma.department.findUnique({
+          where: { department_id: departmentId },
+          select: { name: true }
+        });
+        const departmentName = department?.name ?? 'N/A';
+        departmentNameCache.set(departmentId, departmentName);
+        return departmentName;
+      };
+
+      const getAccountOwnerName = async (accountId?: string | null) => {
+        if (!accountId) return 'N/A';
+        if (accountNameCache.has(accountId)) {
+          return accountNameCache.get(accountId)!;
+        }
+
+        const ownerAccount = await prisma.account.findUnique({
+          where: { account_id: accountId },
+          select: {
+            user: {
+              select: { first_name: true, last_name: true }
+            }
+          }
+        });
+
+        const ownerName = ownerAccount?.user
+          ? `${ownerAccount.user.first_name} ${ownerAccount.user.last_name}`
+          : 'N/A';
+        accountNameCache.set(accountId, ownerName);
+        return ownerName;
+      };
+
       // Get documents with status 'intransit' or 'dispatch' that are incoming
       const [documents, total] = await Promise.all([
         prisma.document.findMany({
@@ -166,6 +210,22 @@ export class IntransitService {
       // Transform to frontend format
       const transformedDocuments = await Promise.all(
         documents.map(async (doc) => {
+          const detail = documentDetailsMap.get(doc.document_id);
+          const workflowDepartments = detail ? this.parseWorkflowDepartments(detail.work_flow_id) : [];
+          const originatorDeptId = workflowDepartments.length > 0 ? workflowDepartments[0] : null;
+          const contactOrganization = await getDepartmentName(originatorDeptId);
+
+          let contactPerson = 'N/A';
+          if (doc.files && doc.files.length > 0) {
+            const sortedFiles = [...doc.files].sort(
+              (a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime()
+            );
+            const firstFile = sortedFiles[0];
+            if (firstFile?.uploaded_by) {
+              contactPerson = await getAccountOwnerName(firstFile.uploaded_by);
+            }
+          }
+
           // Generate QR code
           let qrCode = '';
           try {
@@ -198,8 +258,8 @@ export class IntransitService {
             barcode,
             document: doc.title,
             documentId: doc.document_code,
-            contactPerson: 'N/A',
-            contactOrganization: 'N/A',
+            contactPerson,
+            contactOrganization,
             type: 'General',
             classification: doc.classification,
             status: doc.status, // Use actual document status instead of hardcoded 'incoming'
@@ -254,6 +314,10 @@ export class IntransitService {
           document_id: true,
           work_flow_id: true
         }
+      });
+      const documentDetailsMap = new Map<string, any>();
+      documentDetails.forEach((detail: any) => {
+        documentDetailsMap.set(detail.document_id, detail);
       });
 
       // Filter documents that are outgoing from user's department
@@ -313,6 +377,46 @@ export class IntransitService {
         };
       }
 
+      const departmentNameCache = new Map<string, string>();
+      const accountNameCache = new Map<string, string>();
+
+      const getDepartmentName = async (departmentId?: string | null) => {
+        if (!departmentId) return 'N/A';
+        if (departmentNameCache.has(departmentId)) {
+          return departmentNameCache.get(departmentId)!;
+        }
+
+        const department = await prisma.department.findUnique({
+          where: { department_id: departmentId },
+          select: { name: true }
+        });
+        const departmentName = department?.name ?? 'N/A';
+        departmentNameCache.set(departmentId, departmentName);
+        return departmentName;
+      };
+
+      const getAccountOwnerName = async (accountId?: string | null) => {
+        if (!accountId) return 'N/A';
+        if (accountNameCache.has(accountId)) {
+          return accountNameCache.get(accountId)!;
+        }
+
+        const ownerAccount = await prisma.account.findUnique({
+          where: { account_id: accountId },
+          select: {
+            user: {
+              select: { first_name: true, last_name: true }
+            }
+          }
+        });
+
+        const ownerName = ownerAccount?.user
+          ? `${ownerAccount.user.first_name} ${ownerAccount.user.last_name}`
+          : 'N/A';
+        accountNameCache.set(accountId, ownerName);
+        return ownerName;
+      };
+
       // Get documents that originated from the user's department and are in active workflow state
       // This includes documents that are dispatched, in transit, or have been received but not yet completed
       const [documents, total] = await Promise.all([
@@ -351,6 +455,22 @@ export class IntransitService {
       // Transform to frontend format
       const transformedDocuments = await Promise.all(
         documents.map(async (doc) => {
+          const detail = documentDetailsMap.get(doc.document_id);
+          const workflowDepartments = detail ? this.parseWorkflowDepartments(detail.work_flow_id) : [];
+          const originatorDeptId = workflowDepartments.length > 0 ? workflowDepartments[0] : null;
+          const contactOrganization = await getDepartmentName(originatorDeptId);
+
+          let contactPerson = 'N/A';
+          if (doc.files && doc.files.length > 0) {
+            const sortedFiles = [...doc.files].sort(
+              (a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime()
+            );
+            const firstFile = sortedFiles[0];
+            if (firstFile?.uploaded_by) {
+              contactPerson = await getAccountOwnerName(firstFile.uploaded_by);
+            }
+          }
+
           // Generate QR code
           let qrCode = '';
           try {
@@ -383,8 +503,8 @@ export class IntransitService {
             barcode,
             document: doc.title,
             documentId: doc.document_code,
-            contactPerson: 'N/A',
-            contactOrganization: 'N/A',
+            contactPerson,
+            contactOrganization,
             type: 'General',
             classification: doc.classification,
             status: doc.status, // Use actual document status instead of hardcoded 'sent'
@@ -409,5 +529,28 @@ export class IntransitService {
       console.error('📍 [getOutgoingDocuments] Error:', error);
       throw error;
     }
+  }
+
+  private parseWorkflowDepartments(workflow: any): string[] {
+    if (!workflow) return [];
+
+    try {
+      if (Array.isArray(workflow)) {
+        return workflow as string[];
+      }
+
+      if (typeof workflow === 'string') {
+        const parsed = JSON.parse(workflow);
+        return Array.isArray(parsed) ? parsed : Object.values(parsed);
+      }
+
+      if (typeof workflow === 'object' && workflow !== null) {
+        return Object.values(workflow as Record<string, string>);
+      }
+    } catch (error) {
+      console.error('?? [IntransitService] Error parsing work_flow_id:', error);
+    }
+
+    return [];
   }
 }
