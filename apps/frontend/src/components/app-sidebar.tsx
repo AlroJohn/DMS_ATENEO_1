@@ -375,9 +375,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-semibold text-sm">
-            Q
-          </div>
+          <img 
+            src="/image/qby.png" 
+            alt="Quanby Solution Logo" 
+            className="h-8 w-8 rounded-lg object-contain"
+          />
           <div className="flex flex-col gap-0.5 flex-1">
             <span className="font-semibold text-sm">Quanby Solution, Inc.</span>
             <span className="text-xs text-muted-foreground">Enterprise</span>
