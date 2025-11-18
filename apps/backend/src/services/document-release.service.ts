@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import { getSocketInstance } from '../socket';
 import { EmailService, DocumentReleasedEmailData } from './email.service';
 import { NotificationService } from './notification.service';
+import { recordReceiveStatus, recordReleaseStatus } from './workflow-status.service';
 
 export class DocumentReleaseService {
   prisma = prisma; // Expose prisma instance for use in controllers
@@ -36,6 +37,11 @@ export class DocumentReleaseService {
       if (!document) {
         return { success: false, error: 'Document not found' };
       }
+
+      const releasingUser = await prisma.user.findUnique({
+        where: { user_id: userId },
+        select: { department_id: true, first_name: true, last_name: true }
+      });
 
       // Get the current workflow
       const currentDetail = document.DocumentAdditionalDetails?.[0];
@@ -163,6 +169,14 @@ export class DocumentReleaseService {
         }
       }
 
+      await recordReleaseStatus(documentId, {
+        fromDepartmentId: releasingUser?.department_id || null,
+        toDepartmentId: departmentId,
+        userId,
+        requestAction,
+        remarks
+      });
+
       // Emit socket event to notify frontends of document release/update
       const updatedDocument = await prisma.document.findUnique({
         where: { document_id: documentId }
@@ -251,12 +265,6 @@ export class DocumentReleaseService {
       });
 
       if (receivingDepartment) {
-        // Get the releasing user's name
-        const releasingUser = await prisma.user.findUnique({
-          where: { user_id: userId },
-          select: { first_name: true, last_name: true }
-        });
-
         const releasingUserName = releasingUser ? `${releasingUser.first_name} ${releasingUser.last_name}` : 'A colleague';
 
         // Send email to all users in the receiving department
@@ -392,6 +400,11 @@ export class DocumentReleaseService {
           received_by_departments: receivedByDepartments as any,
           updated_at: new Date()
         }
+      });
+
+      await recordReceiveStatus(documentId, {
+        departmentId: user.department_id,
+        userId
       });
 
       console.log('📍 [DocumentReleaseService.receiveDocument] Document received successfully by department:', user.department_id);

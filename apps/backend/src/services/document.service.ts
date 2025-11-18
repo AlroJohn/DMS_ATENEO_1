@@ -11,6 +11,7 @@ import { getSocketInstance } from '../socket';
 import { EmailService, DocumentSharedEmailData, DocumentReleasedEmailData, DocumentCompletedEmailData } from './email.service';
 import { DocumentMetadataService } from './document-metadata.service';
 import { NotificationService } from './notification.service';
+import { recordCompletionStatus, recordCreationStatus, recordReceiveStatus } from './workflow-status.service';
 // Import the getSocketInstance function instead of importing io directly from index
 
 // Create a type alias to avoid confusion with DOM Document
@@ -1307,6 +1308,12 @@ export class DocumentService {
       }
     });
 
+    await recordCreationStatus(document.document_id, {
+      departmentId: user.department_id,
+      accountId: user.account.account_id,
+      status: document.status
+    });
+
     // If file is uploaded, save file metadata
     if (file) {
       const fileMetadata = getFileMetadata(file);
@@ -1334,7 +1341,7 @@ export class DocumentService {
       // Extract and save document metadata
       try {
         const metadata = await this.documentMetadataService.extractMetadata(fileMetadata.path);
-        
+
         const metadataToSave: any = {
           file_id: createdFile.file_id,
           file_size: metadata.file_size ? BigInt(metadata.file_size) : null,
@@ -1356,10 +1363,10 @@ export class DocumentService {
         const metadataRecord = await this.prismaAny.documentMetadata.create({
           data: metadataToSave,
         });
-        
+
         // Log the inserted metadata as JSON
         console.log('Document metadata inserted:', JSON.stringify(metadataRecord, (key, value) =>
-            typeof value === 'bigint' ? value.toString() : value, 2
+          typeof value === 'bigint' ? value.toString() : value, 2
         ));
       } catch (error) {
         console.error('Failed to extract or save document metadata:', error);
@@ -1464,7 +1471,7 @@ export class DocumentService {
       // Extract and save document metadata for this file
       try {
         const metadata = await this.documentMetadataService.extractMetadata(fileMetadata.path);
-        
+
         const metadataToSave: any = {
           file_id: created.file_id,
           file_size: metadata.file_size ? BigInt(metadata.file_size) : null,
@@ -1486,10 +1493,10 @@ export class DocumentService {
         const metadataRecord = await this.prismaAny.documentMetadata.create({
           data: metadataToSave,
         });
-        
+
         // Log the inserted metadata as JSON
         console.log('Document metadata inserted:', JSON.stringify(metadataRecord, (key, value) =>
-            typeof value === 'bigint' ? value.toString() : value, 2
+          typeof value === 'bigint' ? value.toString() : value, 2
         ));
       } catch (error) {
         console.error('Failed to extract or save document metadata:', error);
@@ -1958,6 +1965,8 @@ export class DocumentService {
         }
       });
 
+      await recordCompletionStatus(documentId, { userId });
+
       // Emit socket event for real-time updates
       const io = getSocketInstance();
       const emailService = new EmailService();
@@ -2172,7 +2181,7 @@ export class DocumentService {
       if (detail) {
         const receivedByUserIds = detail.received_by_departments ? (detail.received_by_departments as string[]) : [];
         if (!receivedByUserIds.includes(userId)) {
-            receivedByUserIds.push(userId);
+          receivedByUserIds.push(userId);
         }
 
         await prisma.documentAdditionalDetails.update({
@@ -2181,6 +2190,13 @@ export class DocumentService {
             received_by_departments: receivedByUserIds as any,
           },
         });
+
+        if (user.department_id) {
+          await recordReceiveStatus(documentId, {
+            departmentId: user.department_id,
+            userId
+          });
+        }
       }
 
       // Emit socket event
