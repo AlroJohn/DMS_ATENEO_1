@@ -147,7 +147,9 @@ export class DocumentMetadataService {
         console.warn('Could not load pdf-parse module for advanced analysis:', errorMessage);
       } else {
         try {
-          const result = await pdfParseModule(dataBuffer);
+          // Handle different export patterns for pdf-parse
+          const pdfParser = pdfParseModule.default || pdfParseModule;
+          const result = await pdfParser(dataBuffer);
           const text = (result.text || '').trim();
 
           // Extract author, producer, and creator if not already present

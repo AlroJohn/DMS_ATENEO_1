@@ -35,7 +35,7 @@ export const extractMetadata = async (req: Request, res: Response) => {
 /** ---------- Helpers ---------- **/
 
 async function extractPdfMeta(buffer: Buffer) {
-  const data = await pdf(buffer);
+  const data = await (pdf as any)(buffer);
 
   // data.info: common PDF info dictionary
   // data.metadata: XMP metadata (if present), already parsed by pdf-parse/PDF.js
@@ -87,7 +87,8 @@ async function extractDocxMeta(buffer: Buffer) {
   const custom = await readXml('docProps/custom.xml'); // Custom properties
 
   // Core fields live under namespaces; normalize best-effort:
-  const coreProps = core?.['cp:coreProperties'] || core?.coreProperties || core || {};
+  const coreProps: { [key: string]: any } =
+    core?.['cp:coreProperties'] || core?.coreProperties || core || {};
   const created = coreProps['dcterms:created']?.['#text'] || coreProps['dcterms:created'];
   const modified = coreProps['dcterms:modified']?.['#text'] || coreProps['dcterms:modified'];
 
@@ -127,7 +128,7 @@ async function extractDocxMeta(buffer: Buffer) {
       let type = null, value = null;
       if (entries.length) {
         type = entries[0][0];      // e.g., 'vt:lpwstr'
-        value = (entries[0][1]?.['#text'] ?? entries[0][1]) ?? null;
+        value = ((entries[0][1] as any)?.['#text'] ?? entries[0][1]) ?? null;
       }
       return { name, type, value };
     });
