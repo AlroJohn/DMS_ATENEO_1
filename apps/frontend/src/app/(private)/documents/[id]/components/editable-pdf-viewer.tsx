@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { Rnd } from "react-rnd";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -22,6 +17,7 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
+  Move,
   PenLine,
   Save,
   Type,
@@ -128,21 +124,31 @@ export function EditablePdfViewer({
   onExit,
   onSaved,
 }: EditablePdfViewerProps) {
-  const pdfFiles = useMemo(() => files.filter((file) => isPdfLikeFile(file)), [files]);
+  const pdfFiles = useMemo(
+    () => files.filter((file) => isPdfLikeFile(file)),
+    [files]
+  );
   const [selectedFileId, setSelectedFileId] = useState<string | null>(
     initialFileId ?? pdfFiles[0]?.id ?? null
   );
   const [pages, setPages] = useState<PdfPageRender[]>([]);
   const [isRendering, setIsRendering] = useState(false);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<
+    string | null
+  >(null);
   const [activePage, setActivePage] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingAssetType, setPendingAssetType] = useState<"image" | "signature" | null>(null);
+  const [pendingAssetType, setPendingAssetType] = useState<
+    "image" | "signature" | null
+  >(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
 
   const selectedFile = useMemo(
-    () => pdfFiles.find((file) => file.id === selectedFileId) ?? pdfFiles[0] ?? null,
+    () =>
+      pdfFiles.find((file) => file.id === selectedFileId) ??
+      pdfFiles[0] ??
+      null,
     [pdfFiles, selectedFileId]
   );
 
@@ -241,23 +247,42 @@ export function EditablePdfViewer({
     }
   }, [pages, activePage]);
 
+  const measureTextDimensions = (text: string, fontSize: number) => {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return { width: 80, height: fontSize + 4 };
+    }
+    context.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+
+    const lines = text.split("\n");
+    const widths = lines.map((line) => context.measureText(line).width);
+    const maxWidth = Math.max(...widths);
+    const height = lines.length * (fontSize + 2);
+
+    return { width: maxWidth + 8, height };
+  };
+
   const handleAddText = () => {
     if (!selectedFile || pages.length === 0) return;
+    const initialText = "Enter text";
+    const initialFontSize = 14;
+    const { width: initialWidth, height: initialHeight } =
+      measureTextDimensions(initialText, initialFontSize);
     const newAnnotation: TextAnnotation = {
       id: createAnnotationId(),
       type: "text",
       pageNumber: activePage,
       x: 40,
       y: 40,
-      width: 220,
-      height: 64,
-      text: "Enter text",
-      fontSize: 14,
+      width: initialWidth,
+      height: initialHeight,
+      text: initialText,
+      fontSize: initialFontSize,
     };
     setAnnotations((prev) => [...prev, newAnnotation]);
     setSelectedAnnotationId(newAnnotation.id);
   };
-
   const handleRequestAsset = (type: "image" | "signature") => {
     setPendingAssetType(type);
     assetInputRef.current?.click();
@@ -295,7 +320,9 @@ export function EditablePdfViewer({
   const updateAnnotation = (id: string, updates: Partial<Annotation>) => {
     setAnnotations((prev) =>
       prev.map((annotation) =>
-        annotation.id === id ? ({ ...annotation, ...updates } as Annotation) : annotation
+        annotation.id === id
+          ? ({ ...annotation, ...updates } as Annotation)
+          : annotation
       )
     );
   };
@@ -308,7 +335,9 @@ export function EditablePdfViewer({
   };
 
   const clampPosition = (annotation: Annotation, x: number, y: number) => {
-    const pageMeta = pages.find((page) => page.pageNumber === annotation.pageNumber);
+    const pageMeta = pages.find(
+      (page) => page.pageNumber === annotation.pageNumber
+    );
     if (!pageMeta) return { x, y };
     const maxX = Math.max(0, pageMeta.width - annotation.width);
     const maxY = Math.max(0, pageMeta.height - annotation.height);
@@ -378,7 +407,9 @@ export function EditablePdfViewer({
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
       for (const annotation of annotations) {
-        const meta = pages.find((page) => page.pageNumber === annotation.pageNumber);
+        const meta = pages.find(
+          (page) => page.pageNumber === annotation.pageNumber
+        );
         if (!meta) continue;
         const page = pdfDoc.getPage(annotation.pageNumber - 1);
         const { width: pageWidth, height: pageHeight } = page.getSize();
@@ -390,22 +421,37 @@ export function EditablePdfViewer({
 
         if (annotation.type === "text") {
           const fontSize = annotation.fontSize ?? 14;
-          const textY = Math.max(yBottom, yTop - fontSize - 2);
-          page.drawText(annotation.text || "", {
+          const textValue = annotation.text || "";
+          const measuredTextWidth = font.widthOfTextAtSize(textValue, fontSize);
+          const rectWidth = Math.max(annotation.width, measuredTextWidth);
+          const rectHeight = Math.max(annotation.height, fontSize + 2);
+          const rectX = x;
+          const rectY = yBottom - 2;
+          page.drawRectangle({
+            x: rectX,
+            y: rectY,
+            width: rectWidth,
+            height: rectHeight,
+            color: rgb(1, 1, 1),
+          });
+          const textY = yBottom;
+          page.drawText(textValue, {
             x,
             y: textY,
             size: fontSize,
             font,
             color: rgb(0, 0, 0),
-            maxWidth: renderWidth,
-            lineHeight: fontSize + 2,
+            maxWidth: annotation.width,
+            lineHeight: fontSize + 1,
           });
-        } else if (annotation.type === "image" || annotation.type === "signature") {
+        } else if (
+          annotation.type === "image" ||
+          annotation.type === "signature"
+        ) {
           const bytes = dataUrlToUint8Array(annotation.dataUrl);
-          const image =
-            annotation.mimeType.includes("png")
-              ? await pdfDoc.embedPng(bytes)
-              : await pdfDoc.embedJpg(bytes);
+          const image = annotation.mimeType.includes("png")
+            ? await pdfDoc.embedPng(bytes)
+            : await pdfDoc.embedJpg(bytes);
           page.drawImage(image, {
             x,
             y: yBottom,
@@ -421,7 +467,9 @@ export function EditablePdfViewer({
         .trim()}-edited-${Date.now()}.pdf`;
       const editedCopy = new Uint8Array(editedBytes);
       const editedBlob = new Blob([editedCopy], { type: "application/pdf" });
-      const editedFile = new File([editedBlob], editedFileName, { type: "application/pdf" });
+      const editedFile = new File([editedBlob], editedFileName, {
+        type: "application/pdf",
+      });
       const formData = new FormData();
       formData.append("files", editedFile);
 
@@ -436,10 +484,14 @@ export function EditablePdfViewer({
       }));
 
       if (!uploadResponse.ok || uploadResult.success === false) {
-        throw new Error(uploadResult.error?.message || "Failed to upload edited PDF.");
+        throw new Error(
+          uploadResult.error?.message || "Failed to upload edited PDF."
+        );
       }
 
-      toast.success("Saved a new PDF version. The previous file remains available.");
+      toast.success(
+        "Saved a new PDF version. The previous file remains available."
+      );
       clearAnnotations();
       onSaved();
     } catch (error: any) {
@@ -452,22 +504,32 @@ export function EditablePdfViewer({
 
   const renderAnnotationControls = () => {
     if (!selectedAnnotationId) return null;
-    const annotation = annotations.find((item) => item.id === selectedAnnotationId);
+    const annotation = annotations.find(
+      (item) => item.id === selectedAnnotationId
+    );
     if (!annotation) return null;
     return (
       <div className="rounded-md border bg-background p-3 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium capitalize">{annotation.type}</p>
-            <p className="text-xs text-muted-foreground">Page {annotation.pageNumber}</p>
+            <p className="text-xs text-muted-foreground">
+              Page {annotation.pageNumber}
+            </p>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => removeAnnotation(annotation.id)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => removeAnnotation(annotation.id)}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
         {annotation.type === "text" && (
           <div className="mt-3 space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Font size</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              Font size
+            </label>
             <input
               type="range"
               min={10}
@@ -475,7 +537,9 @@ export function EditablePdfViewer({
               step={1}
               value={annotation.fontSize}
               onChange={(event) =>
-                updateAnnotation(annotation.id, { fontSize: Number(event.target.value) })
+                updateAnnotation(annotation.id, {
+                  fontSize: Number(event.target.value),
+                })
               }
               className="w-full"
             />
@@ -483,17 +547,20 @@ export function EditablePdfViewer({
         )}
         <div className="mt-3 space-y-1 text-xs text-muted-foreground">
           <p>
-            Position: X {Math.round(annotation.x)} px • Y {Math.round(annotation.y)} px
+            Position: X {Math.round(annotation.x)} px • Y{" "}
+            {Math.round(annotation.y)} px
           </p>
           <p>
-            Size: {Math.round(annotation.width)} × {Math.round(annotation.height)} px
+            Size: {Math.round(annotation.width)} ×{" "}
+            {Math.round(annotation.height)} px
           </p>
         </div>
       </div>
     );
   };
 
-  const annotationToolsDisabled = !selectedFile || isRendering || pages.length === 0;
+  const annotationToolsDisabled =
+    !selectedFile || isRendering || pages.length === 0;
 
   return (
     <Card className="border-2 border-primary/40 bg-muted/30">
@@ -510,10 +577,7 @@ export function EditablePdfViewer({
       </CardHeader>
       <CardContent className="space-y-4">
         {!selectedFile && (
-          <AlertNoPdf
-            hasFiles={pdfFiles.length > 0}
-            onExit={onExit}
-          />
+          <AlertNoPdf hasFiles={pdfFiles.length > 0} onExit={onExit} />
         )}
 
         {selectedFile && (
@@ -547,7 +611,10 @@ export function EditablePdfViewer({
                 </SelectTrigger>
                 <SelectContent>
                   {pages.map((page) => (
-                    <SelectItem key={page.pageNumber} value={String(page.pageNumber)}>
+                    <SelectItem
+                      key={page.pageNumber}
+                      value={String(page.pageNumber)}
+                    >
                       Page {page.pageNumber}
                     </SelectItem>
                   ))}
@@ -602,8 +669,8 @@ export function EditablePdfViewer({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Place text, images, or signatures on the canvas. Saving will upload a new version and
-              keep previous files intact.
+              Place text, images, or signatures on the canvas. Saving will
+              upload a new version and keep previous files intact.
             </p>
 
             <div className="flex flex-col gap-4 lg:flex-row">
@@ -611,7 +678,9 @@ export function EditablePdfViewer({
                 {isRendering && (
                   <div className="flex flex-col items-center justify-center gap-2 py-16">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Rendering PDF pages…</p>
+                    <p className="text-sm text-muted-foreground">
+                      Rendering PDF pages…
+                    </p>
                   </div>
                 )}
 
@@ -641,31 +710,73 @@ export function EditablePdfViewer({
                           style={{ width: page.width, height: page.height }}
                         >
                           {annotations
-                            .filter((annotation) => annotation.pageNumber === page.pageNumber)
+                            .filter(
+                              (annotation) =>
+                                annotation.pageNumber === page.pageNumber
+                            )
                             .map((annotation) => (
                               <RndAnnotation
                                 key={annotation.id}
                                 annotation={annotation}
-                                selected={annotation.id === selectedAnnotationId}
-                                onSelect={() => setSelectedAnnotationId(annotation.id)}
+                                selected={
+                                  annotation.id === selectedAnnotationId
+                                }
+                                onSelect={() =>
+                                  setSelectedAnnotationId(annotation.id)
+                                }
                                 onPositionChange={updateAnnotationPosition}
                                 onResize={updateAnnotationSize}
                                 onRemove={removeAnnotation}
                               >
                                 {annotation.type === "text" ? (
                                   <textarea
-                                    className="annotation-input h-full w-full resize-none rounded border border-dashed border-primary/60 bg-white/80 p-2 text-sm text-black outline-none"
+                                    rows={1} // <-- important: start as 1 line only
+                                    className="
+                                      annotation-input
+                                      min-w-[24px]
+                                      w-full
+                                      resize-none
+                                      bg-white
+                                      text-sm
+                                      text-black
+                                      outline-none
+                                      p-0
+                                      leading-none
+                                      overflow-hidden
+                                    "
                                     value={annotation.text}
-                                    style={{ fontSize: annotation.fontSize }}
-                                    onChange={(event) =>
-                                      updateAnnotation(annotation.id, { text: event.target.value })
-                                    }
+                                    style={{
+                                      fontSize: annotation.fontSize,
+                                      lineHeight: `${
+                                        annotation.fontSize + 2
+                                      }px`,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                    onChange={(event) => {
+                                      const el = event.target;
+
+                                      // auto-grow height
+                                      el.style.height = "auto";
+                                      el.style.height = `${el.scrollHeight}px`;
+
+                                      const newText = el.value;
+                                      const dims = measureTextDimensions(
+                                        newText,
+                                        annotation.fontSize
+                                      );
+
+                                      updateAnnotation(annotation.id, {
+                                        text: newText,
+                                        width: dims.width, // allow shrinking
+                                        height: el.scrollHeight, // keep annotation height in sync
+                                      });
+                                    }}
                                   />
                                 ) : (
                                   <img
                                     src={annotation.dataUrl}
                                     alt={annotation.type}
-                                    className="h-full w-full rounded border bg-white object-contain"
+                                    className="h-full w-full rounded object-contain"
                                   />
                                 )}
                               </RndAnnotation>
@@ -678,8 +789,9 @@ export function EditablePdfViewer({
 
               <div className="w-full max-w-sm space-y-3 rounded-md border bg-background p-3">
                 <div className="rounded-md bg-muted/60 p-3 text-sm text-muted-foreground">
-                  Saving uploads a brand-new PDF to this document. Older versions stay visible in the
-                  file list for auditing and rollback.
+                  Saving uploads a brand-new PDF to this document. Older
+                  versions stay visible in the file list for auditing and
+                  rollback.
                 </div>
 
                 <div className="rounded-md border bg-muted/40 p-3">
@@ -687,7 +799,9 @@ export function EditablePdfViewer({
                   <p className="text-xs text-muted-foreground">
                     {annotations.length === 0
                       ? "No annotations yet."
-                      : `${annotations.length} item${annotations.length === 1 ? "" : "s"} added`}
+                      : `${annotations.length} item${
+                          annotations.length === 1 ? "" : "s"
+                        } added`}
                   </p>
                 </div>
 
@@ -732,7 +846,13 @@ interface RndAnnotationProps {
   selected: boolean;
   onSelect: () => void;
   onPositionChange: (id: string, x: number, y: number) => void;
-  onResize: (id: string, width: number, height: number, x: number, y: number) => void;
+  onResize: (
+    id: string,
+    width: number,
+    height: number,
+    x: number,
+    y: number
+  ) => void;
   onRemove: (id: string) => void;
   children: React.ReactNode;
 }
@@ -769,18 +889,25 @@ function RndAnnotation({
       dragHandleClassName="annotation-drag-handle"
       onDragStop={(_, data) => onPositionChange(annotation.id, data.x, data.y)}
       onResizeStop={(_, _dir, ref, _delta, position) => {
-        onResize(annotation.id, ref.offsetWidth, ref.offsetHeight, position.x, position.y);
+        onResize(
+          annotation.id,
+          ref.offsetWidth,
+          ref.offsetHeight,
+          position.x,
+          position.y
+        );
       }}
       className={cn(
-        "absolute annotation-drag-handle rounded-md border bg-white/90 p-0 shadow-sm",
-        selected ? "border-primary ring-2 ring-primary/60" : "border-muted"
+        "absolute annotation-drag-handle rounded-md border p-0 shadow-sm group",
+        selected ? "border-primary ring-2 ring-primary/60" : "border-muted",
+        annotation.type === "text" ? "bg-transparent" : "bg-white/0"
       )}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-        onSelect();
-      }}
     >
-      <div className="relative h-full w-full" style={{ padding: 8 }}>
+      <div className="relative h-full w-full">
+        <div className="annotation-drag-handle absolute left-1 top-1 flex items-center gap-1 rounded-full border border-muted/50 bg-white/80 px-2 py-0.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100">
+          <Move className="h-3 w-3" />
+          Drag
+        </div>
         {children}
         <button
           type="button"
@@ -808,13 +935,13 @@ function AlertNoPdf({
     <div className="rounded-md border border-dashed border-destructive/60 bg-destructive/10 p-4 text-sm text-destructive">
       {hasFiles ? (
         <p>
-          None of the uploaded files for this document are PDFs. Upload a PDF version first, then
-          reopen the editor.
+          None of the uploaded files for this document are PDFs. Upload a PDF
+          version first, then reopen the editor.
         </p>
       ) : (
         <p>
-          This document does not have any files yet. Upload a PDF via the “Add File” button to start
-          editing.
+          This document does not have any files yet. Upload a PDF via the “Add
+          File” button to start editing.
         </p>
       )}
       <Button variant="outline" size="sm" className="mt-3" onClick={onExit}>
