@@ -16,6 +16,7 @@ import {
   Archive,
   Copy,
   Shield,
+  FilePenLine,
 } from "lucide-react";
 import { ViewDocumentsModal } from "@/components/reuseable/view-details-documents/view-documents";
 import { BlockchainSigningModal } from "@/components/modals/blockchain-signing-modal";
@@ -105,6 +106,10 @@ export function DataTableRowActions<TData>({
 
   const handleViewDocument = () => {
     router.push(`/documents/${document.id}`);
+  };
+
+  const handleOpenEditor = () => {
+    router.push(`/documents/${document.id}?mode=edit`);
   };
 
   const handleSign = () => {
@@ -286,6 +291,14 @@ export function DataTableRowActions<TData>({
             <DropdownMenuItem onClick={(e) => handleAction(e, handleViewDocument)}>
               <Eye className="mr-2 h-4 w-4" />
               View Document
+            </DropdownMenuItem>
+          )}
+
+          {/* Edit PDF - opens the in-app editor */}
+          {canEditDoc && (
+            <DropdownMenuItem onClick={(e) => handleAction(e, handleOpenEditor)}>
+              <FilePenLine className="mr-2 h-4 w-4" />
+              Edit PDF
             </DropdownMenuItem>
           )}
 

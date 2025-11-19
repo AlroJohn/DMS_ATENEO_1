@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useEffect, use } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { ShareDocumentModal } from "@/components/modals/share-document-modal";
 import { useDocumentDetail } from "@/hooks/use-document-detail";
 import { useDocumentFiles } from "@/hooks/use-document-files";
 import { toast } from "sonner";
+import { EditablePdfViewer } from "./components/editable-pdf-viewer";
 import {
   AlertCircle,
   Building,
@@ -34,6 +35,13 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+const isPdfFile = (file?: { type?: string | null; name?: string | null }) => {
+  if (!file) return false;
+  const type = (file.type || "").toLowerCase();
+  const name = (file.name || "").toLowerCase();
+  return type.includes("pdf") || name.endsWith(".pdf");
+};
+
 export default function DocumentDetailPage({
   params: paramsPromise,
 }: {
@@ -42,6 +50,7 @@ export default function DocumentDetailPage({
   const resolvedParams = typeof (paramsPromise as any).then === "function" ? use(paramsPromise as Promise<{ id: string }>) : (paramsPromise as { id: string });
   const documentId = resolvedParams.id;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -53,6 +62,12 @@ export default function DocumentDetailPage({
     error: filesError,
     refetch: refetchFiles,
   } = useDocumentFiles(documentId);
+  const editorModeParam = searchParams?.get("mode");
+  const [isEditorOpen, setIsEditorOpen] = useState(editorModeParam === "edit");
+
+  useEffect(() => {
+    setIsEditorOpen(editorModeParam === "edit");
+  }, [editorModeParam]);
 
   const title = useMemo(() => {
     return (
@@ -69,6 +84,9 @@ export default function DocumentDetailPage({
     const primaryCandidate = files.find((file) => !placeholderPattern.test(file.name));
     return primaryCandidate || files[0];
   }, [files]);
+  const pdfFiles = useMemo(() => files.filter((file) => isPdfFile(file)), [files]);
+  const defaultEditableFileId = pdfFiles[0]?.id ?? null;
+  const hasEditableFile = pdfFiles.length > 0;
 
   const previewMime = (previewFile?.type || "").toLowerCase();
   const isPreviewSupported =
@@ -96,6 +114,44 @@ export default function DocumentDetailPage({
   const handleDownloadClick = () => {
     if (!downloadUrl) return;
     window.open(downloadUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const updateEditorQuery = (shouldOpen: boolean) => {
+    const currentParams = new URLSearchParams(searchParams?.toString() || "");
+    if (shouldOpen) {
+      currentParams.set("mode", "edit");
+    } else {
+      currentParams.delete("mode");
+    }
+    const nextQuery = currentParams.toString();
+    router.replace(
+      nextQuery ? `/documents/${documentId}?${nextQuery}` : `/documents/${documentId}`,
+      { scroll: false }
+    );
+  };
+
+  const handleOpenEditor = () => {
+    if (filesLoading) {
+      toast.error("Document files are still loading. Please wait a moment.");
+      return;
+    }
+    if (!hasEditableFile) {
+      toast.error("No PDF file is available for editing yet. Upload a PDF to enable editing.");
+      return;
+    }
+    setIsEditorOpen(true);
+    updateEditorQuery(true);
+  };
+
+  const handleCloseEditor = () => {
+    setIsEditorOpen(false);
+    updateEditorQuery(false);
+  };
+
+  const handleEditorSaved = () => {
+    refetchFiles();
+    refetch();
+    handleCloseEditor();
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -241,9 +297,13 @@ export default function DocumentDetailPage({
             <Download className="mr-2 h-4 w-4" />
             Download
           </Button>
-          <Button variant="outline">
+          <Button
+            variant={isEditorOpen ? "default" : "outline"}
+            onClick={isEditorOpen ? handleCloseEditor : handleOpenEditor}
+            disabled={filesLoading || (!hasEditableFile && !isEditorOpen)}
+          >
             <Edit className="mr-2 h-4 w-4" />
-            Edit
+            {isEditorOpen ? "Close Editor" : "Edit PDF"}
           </Button>
           <Button 
             variant="outline"
@@ -269,6 +329,17 @@ export default function DocumentDetailPage({
           </Button>
         </div>
       </div>
+
+      {isEditorOpen && (
+        <EditablePdfViewer
+          documentId={documentIdForRoutes}
+          files={files}
+          initialFileId={defaultEditableFileId}
+          isLoadingFiles={filesLoading}
+          onExit={handleCloseEditor}
+          onSaved={handleEditorSaved}
+        />
+      )}
 
       {blockchainRedirectUrl && blockchainStatus && blockchainStatus !== "signed" && (
         <Alert className="bg-blue-50 text-blue-900">
