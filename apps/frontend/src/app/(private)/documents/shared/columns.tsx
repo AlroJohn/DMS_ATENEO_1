@@ -3,8 +3,8 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/reuseable/tables/data-table-column-header";
 import { ScanCodes } from "@/components/ui/scan-codes";
-import { DataTableRowActions } from "./data-table-row-actions";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTableRowActions } from "@/components/reuseable/tables/data-table-row-action";
 import { toast } from "sonner";
 import { Copy, User, Building2, Calendar } from "lucide-react";
 import { CheckoutStatusCell } from "./checkout-status-cell";

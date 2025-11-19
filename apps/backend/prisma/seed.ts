@@ -359,7 +359,7 @@ async function main() {
             department_id: dept.department_id
           }
         });
-        
+
         const user = await tx.user.create({
           data: {
             account_id: userAccount.account_id,
@@ -371,6 +371,130 @@ async function main() {
         });
         sampleUsers.push(user);
       }
+
+      // Create view-only role for testing
+      console.log('\n 👁️ Creating View-Only role for testing...');
+      let viewOnlyRole = await tx.role.findUnique({
+        where: { code: 'VIEW_ONLY' }
+      });
+
+      if (!viewOnlyRole) {
+        viewOnlyRole = await tx.role.create({
+          data: {
+            name: 'View Only',
+            code: 'VIEW_ONLY',
+            description: 'Can only view documents, no editing or management permissions',
+            is_system_role: true,
+            is_active: true,
+            created_by: superAdminAccount.account_id
+          }
+        });
+        console.log('✅ Created View-Only role');
+      } else {
+        console.log('✅ Using existing View-Only role');
+      }
+
+      // Assign document_read and document_type_read permissions to the View-Only role
+      console.log('🔗 Assigning document_read and document_type_read permissions to View-Only role...');
+      const readPermission = await tx.permissionDefinition.findUnique({
+        where: { permission: 'document_read' as any }
+      });
+
+      const typeReadPermission = await tx.permissionDefinition.findUnique({
+        where: { permission: 'document_type_read' as any }
+      });
+
+      // Assign document_read permission
+      if (readPermission) {
+        // Check if this permission is already assigned
+        const existingRolePermission = await tx.rolePermission.findFirst({
+          where: {
+            role_id: viewOnlyRole.role_id,
+            permission_id: readPermission.permission_id
+          }
+        });
+
+        if (!existingRolePermission) {
+          await tx.rolePermission.create({
+            data: {
+              role_id: viewOnlyRole.role_id,
+              permission_id: readPermission.permission_id,
+              scope: 'department' as any,
+              granted_by: superAdminAccount.account_id,
+              is_active: true
+            }
+          });
+          console.log('✅ Assigned document_read permission to View-Only role');
+        } else {
+          console.log('✅ document_read permission already assigned to View-Only role');
+        }
+      }
+
+      // Assign document_type_read permission for basic app functionality
+      if (typeReadPermission) {
+        // Check if this permission is already assigned
+        const existingTypeRolePermission = await tx.rolePermission.findFirst({
+          where: {
+            role_id: viewOnlyRole.role_id,
+            permission_id: typeReadPermission.permission_id
+          }
+        });
+
+        if (!existingTypeRolePermission) {
+          await tx.rolePermission.create({
+            data: {
+              role_id: viewOnlyRole.role_id,
+              permission_id: typeReadPermission.permission_id,
+              scope: 'department' as any,
+              granted_by: superAdminAccount.account_id,
+              is_active: true
+            }
+          });
+          console.log('✅ Assigned document_type_read permission to View-Only role');
+        } else {
+          console.log('✅ document_type_read permission already assigned to View-Only role');
+        }
+      }
+
+      // Create a view-only user account
+      console.log(' 👤 Creating View-Only test user...');
+      const viewOnlyUserAccount = await tx.account.create({
+        data: {
+          email: 'viewer@dms.com',
+          password: await bcrypt.hash('viewer123', 12),
+          email_verified: true,
+          is_active: true,
+          last_login: new Date(),
+          department_id: tempDepartment.department_id
+        }
+      });
+
+      const viewOnlyUser = await tx.user.create({
+        data: {
+          account_id: viewOnlyUserAccount.account_id,
+          department_id: tempDepartment.department_id,
+          first_name: 'Test',
+          last_name: 'Viewer',
+          active: true
+        }
+      });
+
+      // Assign View-Only role to the user
+      await tx.userRole.create({
+        data: {
+          user_id: viewOnlyUser.user_id,
+          role_id: viewOnlyRole.role_id,
+          assigned_by: superAdminAccount.account_id,
+          is_active: true
+        }
+      });
+
+      console.log('✅ Created View-Only test user with login: viewer@dms.com, password: viewer123');
+
+      console.log('\n🎯 View-Only Test User Permissions:');
+      console.log('- Can view documents (document_read)');
+      console.log('- Can view document types (document_type_read) for basic functionality');
+      console.log('- Cannot edit, sign, delete, archive, or perform any other document operations');
 
     });
   } catch (error) {
@@ -387,4 +511,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-      console.log('\n? Sample users created without generating placeholder documents.');
