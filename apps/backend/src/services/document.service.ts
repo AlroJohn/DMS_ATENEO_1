@@ -1535,6 +1535,59 @@ export class DocumentService {
   }
 
   /**
+   * Get document files with checkout info
+   */
+  async getFilesForDocument(documentId: string) {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(documentId)) {
+      throw new Error('Invalid document ID format');
+    }
+
+    const files = await this.prismaAny.documentFile.findMany({
+      where: { document_id: documentId },
+      include: {
+        checked_out_by: {
+          include: {
+            checked_out_by_account: {
+              select: {
+                user: {
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { uploaded_at: 'desc' },
+    });
+
+    return files.map((file: any) => {
+      const checkoutInfo = file.checked_out_by?.[0];
+      const checkedOutBy = checkoutInfo?.checked_out_by_account?.user;
+      
+      return {
+        id: file.file_id,
+        name: file.original_name,
+        size: Number(file.file_size),
+        type: file.mime_type,
+        version: file.version,
+        isPrimary: file.is_primary,
+        checksum: file.checksum,
+        uploadDate: file.uploaded_at,
+        downloadUrl: `/api/documents/${documentId}/files/${file.file_id}/download`,
+        checkout: file.checkout,
+        checkedOutBy: checkedOutBy
+          ? `${checkedOutBy.first_name} ${checkedOutBy.last_name}`.trim()
+          : null,
+      };
+    });
+  }
+
+  /**
    * Get document files
    */
   async getDocumentFiles(documentId: string) {

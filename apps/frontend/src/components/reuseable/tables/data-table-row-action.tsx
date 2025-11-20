@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ReleaseDocumentModal } from "@/components/modals/release-document-modal";
 import { EditDocumentModal } from "@/app/(private)/documents/[id]/components/edit-document-modal";
+import { CheckoutFileModal } from "@/components/modals/checkout-file-modal";
 import { Document } from "@/hooks/use-documents-owned";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -78,6 +79,7 @@ export function DataTableRowActions<TData>({
     release: false,
     complete: false,
     sign: false,
+    checkoutFile: false,
   });
 
   const document = row.original as Document;
@@ -120,6 +122,11 @@ export function DataTableRowActions<TData>({
   const handleEdit = () => {
     setSelectedDocument(document);
     toggleModal("edit", true);
+  };
+
+  const handleCheckoutFile = () => {
+    setSelectedDocument(document);
+    toggleModal("checkoutFile", true);
   };
 
   const handleRelease = () => {
@@ -320,7 +327,7 @@ export function DataTableRowActions<TData>({
 
           {/* Edit Documents - for users with edit permissions on owned documents */}
           {canEditDoc && (
-            <DropdownMenuItem onClick={(e) => handleAction(e, handleEdit)}>
+            <DropdownMenuItem onClick={(e) => handleAction(e, handleCheckoutFile)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit Documents
             </DropdownMenuItem>
@@ -437,6 +444,15 @@ export function DataTableRowActions<TData>({
           onSuccess={() => {
             // The real-time update will handle the UI update
           }}
+        />
+      )}
+
+      {/* Checkout File Modal */}
+      {selectedDocument && (
+        <CheckoutFileModal
+          open={modalState.checkoutFile}
+          onOpenChange={(open) => toggleModal("checkoutFile", open)}
+          documentId={selectedDocument.id}
         />
       )}
     </>

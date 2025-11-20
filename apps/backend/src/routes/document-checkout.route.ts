@@ -5,26 +5,26 @@ import { authMiddleware, requirePermission } from '../middleware/auth-middleware
 const router = express.Router();
 const checkoutController = new DocumentCheckoutController();
 
-// All routes in this file will be under /api/documents/:id
+// All routes in this file will be under /api/files/
 // and should have auth middleware applied.
 router.use(authMiddleware);
 
-// POST /api/documents/:id/checkout - Check out a document for editing
-router.post('/:id/checkout',
+// POST /api/files/:fileId/checkout - Check out a file for editing
+router.post('/:fileId/checkout',
   requirePermission('document_edit'),
-  checkoutController.checkoutDocument
+  checkoutController.checkoutFile
 );
 
-// POST /api/documents/:id/checkin - Check in a document to release the lock
-router.post('/:id/checkin',
+// POST /api/files/:fileId/checkin - Check in a file to release the lock
+router.post('/:fileId/checkin',
   requirePermission('document_edit'),
-  checkoutController.checkinDocument
+  checkoutController.checkinFile
 );
 
-// POST /api/documents/:id/override-checkout - Forcefully override a document checkout
-router.post('/:id/override-checkout',
+// POST /api/files/:fileId/override-checkout - Forcefully override a file checkout
+router.post('/:fileId/override-checkout',
   requirePermission('document_edit'), // Consider a more specific 'document_override_lock' permission
-  checkoutController.overrideCheckout
+  checkoutController.overrideFileCheckout
 );
 
 export default router;

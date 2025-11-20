@@ -20,7 +20,7 @@ model Account {
   created_at                 DateTime             @default(now())
   updated_at                 DateTime             @default(now()) @updatedAt
   department                 Department?          @relation(fields: [department_id], references: [department_id])
-  documents_checked_out      Document[]           @relation("DocumentCheckedOutBy")
+  // documents_checked_out      Document[]           @relation("DocumentCheckedOutBy")
   documents_restored         Document[]           @relation("DocumentRestoredBy")
   document_files             DocumentFile[]       @relation("AccountUploadedFiles")
   password_reset_tokens      PasswordResetToken[]
@@ -36,6 +36,7 @@ model Account {
   user_permissions_granted   UserPermission[]     @relation("UserPermissionGrantedBy")
   user_role_assignments      UserRole[]           @relation("UserRoleAssignedBy")
   sessions                   UserSession[]
+  userCheckouts              UserCheckout[]
 }
 
 model User {
@@ -86,12 +87,14 @@ model Document {
   deleted_at                DateTime?
   restored_at               DateTime?
   restored_by               String?                     @db.Uuid
-  checked_out_at            DateTime?
-  checked_out_by            String?                     @db.Uuid
-  checked_out_by_account    Account?                    @relation("DocumentCheckedOutBy", fields: [checked_out_by], references: [account_id])
+  // checked_out_at            DateTime?
+  // checked_out_by            String?                     @db.Uuid
+  // checked_out_by_account    Account?                    @relation("DocumentCheckedOutBy", fields: [checked_out_by], references: [account_id])
   restored_by_account       Account?                    @relation("DocumentRestoredBy", fields: [restored_by], references: [account_id])
   DocumentAdditionalDetails DocumentAdditionalDetails[]
   files                     DocumentFile[]              @relation("DocumentFiles")
+  // account                   Account?                    @relation(fields: [accountAccount_id], references: [account_id])
+  // accountAccount_id         String?                     @db.Uuid
 }
 
 model DocumentAdditionalDetails {
@@ -163,6 +166,8 @@ model DocumentMetadata {
 }
 
 model DocumentFile {
+  checkout            Boolean           @default(false)
+  checked_out_by      UserCheckout[]
   file_id             String            @id @default(uuid()) @db.Uuid
   document_id         String            @db.Uuid
   original_name       String
@@ -182,6 +187,15 @@ model DocumentFile {
 
   @@index([document_id])
   @@index([uploaded_by])
+}
+
+model UserCheckout {
+  checkout_id            String       @id @default(uuid()) @db.Uuid
+  file_id                String       @db.Uuid
+  checked_out_at         DateTime     @default(now())
+  checked_out_by         String       @db.Uuid
+  checked_out_by_account Account      @relation(fields: [checked_out_by], references: [account_id])
+  documentFile           DocumentFile @relation(fields: [file_id], references: [file_id])
 }
 
 model Notification {
@@ -444,7 +458,7 @@ enum DocStatus {
   completed
   canceled
   deleted
-  checked_out
+  // checked_out
 }
 
 enum IntransitStatus {

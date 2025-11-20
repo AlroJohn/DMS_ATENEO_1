@@ -904,7 +904,7 @@ function RndAnnotation({
       )}
     >
       <div className="relative h-full w-full">
-        <div className="annotation-drag-handle absolute left-1 top-1 flex items-center gap-1 rounded-full border border-muted/50 bg-white/80 px-2 py-0.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100">
+        <div className="annotation-drag-handle absolute -left-1 -top-8 cursor-pointer flex items-center gap-1 rounded-full border border-muted/50 bg-white/80 px-2 py-0.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100">
           <Move className="h-3 w-3" />
           Drag
         </div>

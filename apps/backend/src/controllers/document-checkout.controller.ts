@@ -12,45 +12,45 @@ export class DocumentCheckoutController {
   }
 
   /**
-   * POST /api/documents/:id/checkout
+   * POST /api/files/:fileId/checkout
    */
-  checkoutDocument = asyncHandler(async (req: Request, res: Response) => {
+  checkoutFile = asyncHandler(async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
-    const { id } = req.params;
+    const { fileId } = req.params;
 
-    const result = await this.checkoutService.checkoutDocument(id, authReq.user.id);
+    const result = await this.checkoutService.checkoutFile(fileId, authReq.user.id);
 
     if (!result.success) {
-      return sendError(res, result.error || 'Failed to check out document', result.statusCode || 400);
+      return sendError(res, result.error || 'Failed to check out file', result.statusCode || 400);
     }
 
     return sendSuccess(res, result.data);
   });
 
   /**
-   * POST /api/documents/:id/checkin
+   * POST /api/files/:fileId/checkin
    */
-  checkinDocument = asyncHandler(async (req: Request, res: Response) => {
+  checkinFile = asyncHandler(async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
-    const { id } = req.params;
+    const { fileId } = req.params;
 
-    const result = await this.checkoutService.checkinDocument(id, authReq.user.id);
+    const result = await this.checkoutService.checkinFile(fileId, authReq.user.id);
 
     if (!result.success) {
-      return sendError(res, result.error || 'Failed to check in document', result.statusCode || 400);
+      return sendError(res, result.error || 'Failed to check in file', result.statusCode || 400);
     }
 
     return sendSuccess(res, result.data);
   });
 
   /**
-   * POST /api/documents/:id/override-checkout
+   * POST /api/files/:fileId/override-checkout
    */
-  overrideCheckout = asyncHandler(async (req: Request, res: Response) => {
+  overrideFileCheckout = asyncHandler(async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
-    const { id } = req.params;
+    const { fileId } = req.params;
 
-    const result = await this.checkoutService.overrideCheckout(id, authReq.user.id);
+    const result = await this.checkoutService.overrideFileCheckout(fileId, authReq.user.id);
 
     if (!result.success) {
       return sendError(res, result.error || 'Failed to override checkout', result.statusCode || 400);

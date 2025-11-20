@@ -217,12 +217,12 @@ export function canReleaseDocument(user: User | null, document: Document): boole
   // Users with view-only roles cannot release
   if (hasViewOnlyRole(user)) return false;
 
-  // Check if document is shared and not owned by user's department
+  // Check if document is owned by user's department
   const isDocumentOwned = isDocumentOwnedByUserDepartment(document, user);
-  const isDocumentShared = !isDocumentOwned;
 
-  // If a user has explicit transfer permissions, they can release shared documents
-  if (hasAnyPermission(user, ['document_transfer_initiate', 'document_transfer_approve']) && isDocumentShared) return true;
+  // If a user has document write permissions and the document is owned by their department, they can release it
+  // Also check for specific transfer permissions for more granular control
+  if ((hasPermission(user, 'document_write') || hasAnyPermission(user, ['document_transfer_initiate', 'document_transfer_approve'])) && isDocumentOwned) return true;
 
   // If a user doesn't have these specific permissions, they cannot release regardless of role
   return false;

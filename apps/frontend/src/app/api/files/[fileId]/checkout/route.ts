@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiUrl } from "@/lib/utils";
 import { cookies } from "next/headers";
 
-export async function GET(
+export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { fileId: string } }
 ) {
-  const { id } = params;
+  const { fileId } = params;
   const accessToken = cookies().get("accessToken")?.value;
 
   if (!accessToken) {
@@ -14,24 +14,26 @@ export async function GET(
   }
 
   try {
-    const res = await fetch(getApiUrl(`/api/documents/${id}/files`), {
+    const res = await fetch(getApiUrl(`/api/files/${fileId}/checkout`), {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
     });
 
+    const data = await res.json();
+
     if (!res.ok) {
-      const errorData = await res.json();
       return NextResponse.json(
-        { error: errorData.error || "Failed to fetch document files" },
+        { error: data.error || "Failed to checkout file" },
         { status: res.status }
       );
     }
 
-    const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching document files:", error);
+    console.error("Error checking out file:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

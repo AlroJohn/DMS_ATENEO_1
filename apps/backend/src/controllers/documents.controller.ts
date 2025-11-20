@@ -156,7 +156,7 @@ export class DocumentController {
       return sendError(res, 'Invalid document ID format', 400);
     }
 
-    const files = await this.documentService.getDocumentFiles(id);
+    const files = await this.documentService.getFilesForDocument(id);
 
     return sendSuccess(res, files);
   });

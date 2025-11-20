@@ -8,6 +8,11 @@ import passport from 'passport';
 import session from 'express-session';
 import cookieParser from 'cookie-parser'; // Import cookie-parser
 
+// Add this to handle BigInt serialization
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 // Import services
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
@@ -135,7 +140,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', oauthRoutes);
 app.use('/api/documents', documentRoutes);
-app.use('/api/documents', documentCheckoutRoutes);
+app.use('/api/files', documentCheckoutRoutes);
 app.use('/api/documents', documentReleaseRoutes);
 app.use('/api', invitationRoutes);
 app.use('/api/admin/roles', roleRoutes);
