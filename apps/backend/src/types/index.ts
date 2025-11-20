@@ -144,6 +144,7 @@ export interface RolePermission {
 // Updated User interface to work with role-based system
 export interface User {
   id: string;
+  accountId: string;
   email: string;
   name?: string;
   password: string;

@@ -14,6 +14,13 @@ export interface Document {
   status: string;
   activity: string;
   activityTime: string;
+  checkout?: boolean;
+  checkedOutBy?: {
+    id: string;
+    accountId?: string; // Account ID of the user who checked out the document
+    name?: string;
+    email?: string;
+  } | null;
 }
 
 export interface Pagination {

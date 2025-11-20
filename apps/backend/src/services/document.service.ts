@@ -1434,12 +1434,25 @@ export class DocumentService {
 
     let hasRealFile = existingFiles.some((file: any) => !this.isPlaceholderFile(file));
     const existingCount = existingFiles.length;
+    let lastMajor = 1;
+    let lastMinor = -1;
+
+    if (existingFiles.length > 0) {
+      const lastFile = existingFiles[existingFiles.length - 1];
+      const vParts = (lastFile.version || "1.0").split('.');
+      lastMajor = parseInt(vParts[0]) || 1;
+      lastMinor = parseInt(vParts[1]) || 0;
+    }
+
     const uploadedFiles = [];
 
     for (const [index, file] of files.entries()) {
       const fileMetadata = getFileMetadata(file);
       const checksum = await this.calculateChecksum(fileMetadata.path);
-      const version = `${existingCount + index + 1}.0`;
+
+      const currentMinor = lastMinor + 1 + index;
+      const version = `${lastMajor}.${currentMinor}`;
+
       const shouldBePrimary = !hasRealFile && index === 0;
 
       const created = await this.prismaAny.documentFile.create({
@@ -1551,6 +1564,7 @@ export class DocumentService {
           include: {
             checked_out_by_account: {
               select: {
+                account_id: true,
                 user: {
                   select: {
                     first_name: true,
@@ -1567,8 +1581,8 @@ export class DocumentService {
 
     return files.map((file: any) => {
       const checkoutInfo = file.checked_out_by?.[0];
-      const checkedOutBy = checkoutInfo?.checked_out_by_account?.user;
-      
+      const checkedOutByAccount = checkoutInfo?.checked_out_by_account;
+
       return {
         id: file.file_id,
         name: file.original_name,
@@ -1580,8 +1594,11 @@ export class DocumentService {
         uploadDate: file.uploaded_at,
         downloadUrl: `/api/documents/${documentId}/files/${file.file_id}/download`,
         checkout: file.checkout,
-        checkedOutBy: checkedOutBy
-          ? `${checkedOutBy.first_name} ${checkedOutBy.last_name}`.trim()
+        checkedOutBy: checkedOutByAccount
+          ? {
+            accountId: checkedOutByAccount.account_id,
+            name: `${checkedOutByAccount.user.first_name} ${checkedOutByAccount.user.last_name}`.trim(),
+          }
           : null,
       };
     });
@@ -1640,51 +1657,7 @@ export class DocumentService {
     if (!fs.existsSync(file.storage_path)) {
       // Log the discrepancy between database and file system
       console.error(`File not found on disk: ${file.storage_path} for file_id: ${fileId}, document_id: ${documentId}`);
-
-      // Try to create a placeholder document if the file is missing
-      const document = await prisma.document.findUnique({
-        where: { document_id: documentId },
-        include: { files: true }
-      });
-
-      if (!document) {
-        throw new Error('Document not found');
-      }
-
-      // Check if there are other files for this document that might exist
-      const existingFiles = document.files.filter(f => fs.existsSync(f.storage_path));
-      if (existingFiles.length > 0) {
-        // Use the first existing file as fallback
-        const fallbackFile = existingFiles[0];
-        return {
-          filePath: fallbackFile.storage_path,
-          fileName: fallbackFile.original_name,
-          mimeType: fallbackFile.mime_type
-        };
-      } else {
-        // No files exist, create a placeholder
-        const user = await prisma.user.findFirst({
-          where: { account_id: file.uploaded_by },
-          select: { first_name: true, last_name: true }
-        });
-
-        const placeholderFile = await this.createPlaceholderDocumentFile(
-          documentId,
-          document,
-          null, // No detail available, so pass null
-          { first_name: user?.first_name || 'Unknown', last_name: user?.last_name || 'User' }
-        );
-
-        if (placeholderFile) {
-          return {
-            filePath: placeholderFile.storage_path,
-            fileName: placeholderFile.original_name,
-            mimeType: placeholderFile.mime_type
-          };
-        }
-
-        throw new Error('File not found on disk and unable to create placeholder');
-      }
+      throw new Error('File not found on disk');
     }
 
     return {
@@ -1885,10 +1858,30 @@ export class DocumentService {
       throw new Error('Document not found');
     }
 
-    if (existingDocument.checked_out_by && existingDocument.checked_out_by !== user.account_id) {
-      const checkedOutByUser = await prisma.account.findUnique({ where: { account_id: existingDocument.checked_out_by }, include: { user: true } });
-      const userName = checkedOutByUser?.user ? `${checkedOutByUser.user.first_name} ${checkedOutByUser.user.last_name}` : 'another user';
-      throw new Error(`Document is checked out by ${userName} and cannot be updated.`);
+    // Check if any of the document's files are checked out by another user
+    const checkedOutFiles = await prisma.userCheckout.findMany({
+      where: {
+        file_id: {
+          in: (await prisma.documentFile.findMany({
+            where: { document_id: id },
+            select: { file_id: true }
+          })).map(file => file.file_id)
+        },
+        checked_out_by: { not: user.account_id }
+      },
+      include: {
+        checked_out_by_account: {
+          include: { user: true }
+        }
+      }
+    });
+
+    if (checkedOutFiles.length > 0) {
+      const firstCheckedOutFile = checkedOutFiles[0];
+      const userName = firstCheckedOutFile.checked_out_by_account?.user
+        ? `${firstCheckedOutFile.checked_out_by_account.user.first_name} ${firstCheckedOutFile.checked_out_by_account.user.last_name}`
+        : 'another user';
+      throw new Error(`Document file is checked out by ${userName} and cannot be updated.`);
     }
 
     const updateFields: any = {
@@ -2906,6 +2899,28 @@ export class DocumentService {
 
     if (idsToDelete.length === 0) {
       return { count: 0 };
+    }
+
+    // First, delete any related records to avoid foreign key constraint violations
+    const fileIds = documentsToDelete.flatMap(doc => doc.files.map(file => file.file_id));
+    if (fileIds.length > 0) {
+      // Delete UserCheckout records (checkout history) associated with these files
+      await prisma.userCheckout.deleteMany({
+        where: {
+          file_id: {
+            in: fileIds,
+          },
+        },
+      });
+
+      // Delete DocumentMetadata records associated with these files
+      await prisma.documentMetadata.deleteMany({
+        where: {
+          file_id: {
+            in: fileIds,
+          },
+        },
+      });
     }
 
     // Delete associated files from the filesystem before deleting from database

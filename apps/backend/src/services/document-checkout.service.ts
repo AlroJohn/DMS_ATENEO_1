@@ -119,31 +119,31 @@ export class DocumentCheckoutService {
     }
 
     try {
-        const [updatedFile] = await prisma.$transaction([
-            prisma.documentFile.update({
-              where: { file_id: fileId },
-              data: { checkout: false },
-            }),
-            prisma.userCheckout.deleteMany({
-              where: { file_id: fileId },
-            }),
-          ]);
-      
-          const io = getSocketInstance();
-          io.emit('file-lock-updated', {
-            fileId,
-            locked: false,
-            documentId: documentFile.document_id,
-          });
-      
-          return { success: true, data: updatedFile };
-    } catch(error) {
-        console.error('Checkin transaction failed:', error);
-        return {
-          success: false,
-          error: 'Failed to checkin file due to a database error.',
-          statusCode: 500,
-        };
+      const [updatedFile] = await prisma.$transaction([
+        prisma.documentFile.update({
+          where: { file_id: fileId },
+          data: { checkout: false },
+        }),
+        prisma.userCheckout.deleteMany({
+          where: { file_id: fileId },
+        }),
+      ]);
+
+      const io = getSocketInstance();
+      io.emit('file-lock-updated', {
+        fileId,
+        locked: false,
+        documentId: documentFile.document_id,
+      });
+
+      return { success: true, data: updatedFile };
+    } catch (error) {
+      console.error('Checkin transaction failed:', error);
+      return {
+        success: false,
+        error: 'Failed to checkin file due to a database error.',
+        statusCode: 500,
+      };
     }
   }
 
@@ -180,43 +180,62 @@ export class DocumentCheckoutService {
     const originalCheckoutUserAccountId = checkoutRecord.checked_out_by;
 
     try {
-        const [updatedFile] = await prisma.$transaction([
-            prisma.documentFile.update({
-              where: { file_id: fileId },
-              data: { checkout: false },
-            }),
-            prisma.userCheckout.deleteMany({
-              where: { file_id: fileId },
-            }),
-          ]);
-      
-          const io = getSocketInstance();
-          io.emit('file-lock-updated', {
+      const [updatedFile] = await prisma.$transaction([
+        prisma.documentFile.update({
+          where: { file_id: fileId },
+          data: { checkout: false },
+        }),
+        prisma.userCheckout.deleteMany({
+          where: { file_id: fileId },
+        }),
+      ]);
+
+      const io = getSocketInstance();
+      io.emit('file-lock-updated', {
+        fileId,
+        locked: false,
+        documentId: documentFile.document_id,
+      });
+
+      // Notify the original user that their lock was overridden
+      if (originalCheckoutUserAccountId) {
+        io.to(`account-${originalCheckoutUserAccountId}`).emit(
+          'file-checkout-overridden',
+          {
             fileId,
-            locked: false,
             documentId: documentFile.document_id,
-          });
-      
-          // Notify the original user that their lock was overridden
-          if (originalCheckoutUserAccountId) {
-            io.to(`account-${originalCheckoutUserAccountId}`).emit(
-              'file-checkout-overridden',
-              {
-                fileId,
-                documentId: documentFile.document_id,
-                overriddenBy: userId,
-              },
-            );
-          }
-      
-          return { success: true, data: updatedFile };
-    } catch(error) {
-        console.error('Override checkout transaction failed:', error);
-        return {
-          success: false,
-          error: 'Failed to override checkout due to a database error.',
-          statusCode: 500,
-        };
+            overriddenBy: userId,
+          },
+        );
+      }
+
+      return { success: true, data: updatedFile };
+    } catch (error) {
+      console.error('Override checkout transaction failed:', error);
+      return {
+        success: false,
+        error: 'Failed to override checkout due to a database error.',
+        statusCode: 500,
+      };
     }
+  }
+
+  /**
+   * Gets the current checkout status of a file.
+   */
+  async getCheckoutStatus(fileId: string) {
+    const checkoutRecord = await prisma.userCheckout.findFirst({
+      where: { file_id: fileId },
+      select: {
+        checked_out_at: true,
+        checked_out_by: true,
+      },
+    });
+
+    if (!checkoutRecord) {
+      return { success: true, data: null };
+    }
+
+    return { success: true, data: checkoutRecord };
   }
 }

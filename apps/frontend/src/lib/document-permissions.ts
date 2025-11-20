@@ -26,6 +26,13 @@ export interface Document {
   isOwned?: boolean; // For shared documents
   currentLocation?: string; // For owned documents
   department_id?: string; // Department that owns the document
+  checkout?: boolean; // Whether the document is checked out
+  checkedOutBy?: { // Information about who checked out the document
+    id: string;
+    accountId?: string; // Account ID of the user who checked out the document
+    name?: string; // Name of the user who checked out the document
+    email?: string;
+  } | null;
   [key: string]: any; // For other fields
 }
 

@@ -302,12 +302,7 @@ export function DataTableRowActions<TData>({
           )}
 
           {/* Edit PDF - opens the in-app editor */}
-          {canEditDoc && (
-            <DropdownMenuItem onClick={(e) => handleAction(e, handleOpenEditor)}>
-              <FilePenLine className="mr-2 h-4 w-4" />
-              Edit PDF
-            </DropdownMenuItem>
-          )}
+
 
           {/* Sign Document - for users with signing permissions on owned documents */}
           {canSignDoc && (
@@ -332,6 +327,9 @@ export function DataTableRowActions<TData>({
               Edit Documents
             </DropdownMenuItem>
           )}
+
+          {/* Direct Edit when file is locked by the user - for users with edit permissions on owned documents */}
+
 
           {(canSignDoc || canEditDetails || canEditDoc) && <DropdownMenuSeparator />}
 

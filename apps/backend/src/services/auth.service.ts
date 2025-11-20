@@ -38,6 +38,7 @@ export class AuthService {
   private users: User[] = [
     {
       id: '1',
+      accountId: 'mock-account-1',
       email: 'admin@example.com',
       name: 'Admin User',
       password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
@@ -52,6 +53,7 @@ export class AuthService {
     },
     {
       id: '2',
+      accountId: 'mock-account-2',
       email: 'user@example.com',
       name: 'Regular User',
       password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
@@ -135,6 +137,7 @@ export class AuthService {
     // Create user object for token generation
     const user: User = {
       id: account.user!.user_id,
+      accountId: account.account_id,
       email: account.email,
       name: `${account.user!.first_name} ${account.user!.last_name}`,
       password: hashedPassword,
@@ -200,6 +203,7 @@ export class AuthService {
     // Convert to User type for token generation
     const user: User = {
       id: account.user.user_id,
+      accountId: account.account_id,
       email: account.email,
       name: `${account.user.first_name} ${account.user.last_name}`,
       password: account.password,
@@ -256,6 +260,7 @@ export class AuthService {
       // Convert to User type for token generation
       const userObj: User = {
         id: user.user_id,
+        accountId: account.account_id,
         email: account.email,
         name: `${user.first_name} ${user.last_name}`,
         password: account.password || '',
@@ -331,6 +336,7 @@ export class AuthService {
 
     const userObj: User = {
       id: user.user_id,
+      accountId: account.account_id,
       email: account.email,
       name: `${user.first_name} ${user.last_name}`,
       password: account.password || '',
@@ -509,6 +515,7 @@ export class AuthService {
       // Create a user object for token generation
       const user: User = {
         id: account.user!.user_id, // Use user_id instead of account_id for consistency
+        accountId: account.account_id,
         email: account.email,
         name: account.user ? `${account.user.first_name} ${account.user.last_name}` : account.email.split('@')[0],
         password: '', // Not needed for OAuth users

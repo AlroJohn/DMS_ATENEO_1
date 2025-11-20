@@ -63,6 +63,7 @@ export default function DocumentDetailPage({
     refetch: refetchFiles,
   } = useDocumentFiles(documentId);
   const editorModeParam = searchParams?.get("mode");
+  const fileIdFromUrl = searchParams?.get("fileId");
   const [isEditorOpen, setIsEditorOpen] = useState(editorModeParam === "edit");
 
   useEffect(() => {
@@ -80,12 +81,27 @@ export default function DocumentDetailPage({
 
   const previewFile = useMemo(() => {
     if (!files || files.length === 0) return null;
+    // Prioritize fileId from URL if provided
+    if (fileIdFromUrl) {
+      const fileById = files.find((file) => file.id === fileIdFromUrl);
+      if (fileById) return fileById;
+    }
+    // Fallback to primary candidate or first file if no specific fileId or it's not found
     const placeholderPattern = /placeholder/i;
     const primaryCandidate = files.find((file) => !placeholderPattern.test(file.name));
     return primaryCandidate || files[0];
-  }, [files]);
+  }, [files, fileIdFromUrl]);
+
   const pdfFiles = useMemo(() => files.filter((file) => isPdfFile(file)), [files]);
-  const defaultEditableFileId = pdfFiles[0]?.id ?? null;
+  const editableFileFromUrl = useMemo(() => {
+    if (fileIdFromUrl) {
+      const file = pdfFiles.find((f) => f.id === fileIdFromUrl);
+      if (file) return file;
+    }
+    return null;
+  }, [pdfFiles, fileIdFromUrl]);
+
+  const defaultEditableFileId = editableFileFromUrl?.id ?? pdfFiles[0]?.id ?? null;
   const hasEditableFile = pdfFiles.length > 0;
 
   const previewMime = (previewFile?.type || "").toLowerCase();

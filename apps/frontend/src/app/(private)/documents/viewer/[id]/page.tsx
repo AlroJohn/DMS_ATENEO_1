@@ -152,10 +152,27 @@ export default function DocumentViewerPage() {
             <Download className="h-4 w-4 mr-2" />
             Download
           </Button>
-          <Button size="sm">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
+          {/* Edit button - behavior changes based on lock status */}
+          {lock.status === 'locked_by_you' ? (
+            <Button size="sm" onClick={() => {
+              window.location.href = `/documents/${params.id as string}?mode=edit`;
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit (Locked by You)
+            </Button>
+          ) : lock.status === 'available' ? (
+            <Button size="sm" onClick={() => {
+              window.location.href = `/documents/${params.id as string}?mode=edit`;
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled={true}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit (Locked)
+            </Button>
+          )}
 
           <Separator orientation="vertical" className="h-6" />
 

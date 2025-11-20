@@ -9,6 +9,12 @@ const checkoutController = new DocumentCheckoutController();
 // and should have auth middleware applied.
 router.use(authMiddleware);
 
+// GET /api/files/:fileId/status - Get the checkout status of a file
+router.get('/:fileId/status',
+  requirePermission('document_read'),
+  checkoutController.getFileCheckoutStatus
+);
+
 // POST /api/files/:fileId/checkout - Check out a file for editing
 router.post('/:fileId/checkout',
   requirePermission('document_edit'),

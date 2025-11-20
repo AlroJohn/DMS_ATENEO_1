@@ -281,31 +281,49 @@ export class SharedDocumentService {
             }
           }
 
-          // Get checkout information
+          // Get checkout information - check if any of the document's files are checked out
           let checkedOutBy = null;
           let checkedOutAt = null;
-          if (doc.checked_out_by) {
-            const checkedOutUser = await prisma.user.findUnique({
-              where: { account_id: doc.checked_out_by },
-              select: {
-                user_id: true,  // Need the user ID for comparison with current user
-                first_name: true,
-                last_name: true,
-                account: {
-                  select: {
-                    email: true
+
+          // Check if any of the document's files are checked out
+          const checkedOutFile = await prisma.userCheckout.findFirst({
+            where: {
+              file_id: {
+                in: doc.files.map((file: any) => file.file_id)
+              }
+            },
+            include: {
+              checked_out_by_account: {
+                include: {
+                  user: {
+                    select: {
+                      user_id: true,
+                      first_name: true,
+                      last_name: true,
+                    }
+                  },
+                  account: {
+                    select: {
+                      email: true
+                    }
                   }
                 }
               }
-            });
-            if (checkedOutUser) {
+            }
+          });
+
+          if (checkedOutFile) {
+            const checkoutUser = checkedOutFile.checked_out_by_account?.user;
+            const checkoutAccount = checkedOutFile.checked_out_by_account?.account;
+
+            if (checkoutUser) {
               checkedOutBy = {
-                id: checkedOutUser.user_id, // Use the user ID for comparison in frontend
-                name: `${checkedOutUser.first_name} ${checkedOutUser.last_name}`,
-                email: checkedOutUser.account?.email
+                id: checkoutUser.user_id, // Use the user ID for comparison in frontend
+                name: `${checkoutUser.first_name} ${checkoutUser.last_name}`,
+                email: checkoutAccount?.email
               };
             }
-            checkedOutAt = doc.checked_out_at;
+            checkedOutAt = checkedOutFile.checked_out_at;
           }
 
           return {

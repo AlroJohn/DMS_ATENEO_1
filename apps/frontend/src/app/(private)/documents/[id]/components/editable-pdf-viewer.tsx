@@ -128,124 +128,60 @@ export function EditablePdfViewer({
     () => files.filter((file) => isPdfLikeFile(file)),
     [files]
   );
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(
-    initialFileId ?? pdfFiles[0]?.id ?? null
-  );
-  const [pages, setPages] = useState<PdfPageRender[]>([]);
-  const [isRendering, setIsRendering] = useState(false);
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [selectedAnnotationId, setSelectedAnnotationId] = useState<
-    string | null
-  >(null);
-  const [activePage, setActivePage] = useState(1);
-  const [isSaving, setIsSaving] = useState(false);
-  const [pendingAssetType, setPendingAssetType] = useState<
-    "image" | "signature" | null
-  >(null);
-  const assetInputRef = useRef<HTMLInputElement>(null);
+  const [internalSelectedFileId, setInternalSelectedFileId] = useState<string | null>(initialFileId ?? pdfFiles[0]?.id ?? null);
 
-  const selectedFile = useMemo(
-    () =>
-      pdfFiles.find((file) => file.id === selectedFileId) ??
-      pdfFiles[0] ??
-      null,
-    [pdfFiles, selectedFileId]
-  );
+  const selectedFile = useMemo(() => {
+    if (!pdfFiles || pdfFiles.length === 0) return null;
 
-  useEffect(() => {
+    let targetFileId: string | null = null;
+
+    // 1. Prioritize initialFileId from URL
     if (initialFileId) {
-      setSelectedFileId(initialFileId);
-    }
-  }, [initialFileId]);
-
-  useEffect(() => {
-    if (!selectedFileId && pdfFiles[0]) {
-      setSelectedFileId(pdfFiles[0].id);
-    }
-  }, [pdfFiles, selectedFileId]);
-
-  useEffect(() => {
-    if (!selectedFile || isLoadingFiles) {
-      setPages([]);
-      return;
+      targetFileId = initialFileId;
+    } else if (internalSelectedFileId) {
+      // 2. Fallback to internal selection if no initialFileId
+      targetFileId = internalSelectedFileId;
+    } else {
+      // 3. Fallback to the first PDF file if no explicit selection
+      targetFileId = pdfFiles[0]?.id ?? null;
     }
 
-    let isCancelled = false;
-    const abortController = new AbortController();
+    const foundFile = targetFileId ? pdfFiles.find((file) => file.id === targetFileId) : null;
+    
+    // If a file was found with the targetFileId, use it. Otherwise, fall back to the first file.
+    return foundFile || pdfFiles[0] || null;
 
-    const renderPages = async () => {
-      setIsRendering(true);
-      try {
-        const response = await fetch(
-          `/api/documents/${documentId}/files/${selectedFile.id}/stream`,
-          {
-            method: "GET",
-            credentials: "include",
-            signal: abortController.signal,
-          }
-        );
+  }, [pdfFiles, initialFileId, internalSelectedFileId]);
 
-        if (!response.ok) {
-          throw new Error("Unable to load PDF for editing");
-        }
+  // Moved pages state and its direct useEffect here
+  const [pages, setPages] = useState<PdfPageRender[]>([]);
+  const [activePage, setActivePage] = useState(1); // activePage also moved here as it's directly related to pages
 
-        const buffer = await response.arrayBuffer();
-        const pdf = await getDocument({ data: new Uint8Array(buffer) }).promise;
-        const renderedPages: PdfPageRender[] = [];
+  console.log("DEBUG: EditablePdfViewer - pages state:", pages);
 
-        for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex += 1) {
-          const page = await pdf.getPage(pageIndex);
-          const scale = 1.25;
-          const viewport = page.getViewport({ scale });
-          const baseViewport = page.getViewport({ scale: 1 });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const context = canvas.getContext("2d");
-          if (!context) continue;
-          await page.render({ canvasContext: context, viewport }).promise;
-          renderedPages.push({
-            pageNumber: pageIndex,
-            imageUrl: canvas.toDataURL("image/png"),
-            width: viewport.width,
-            height: viewport.height,
-            pdfWidth: baseViewport.width,
-            pdfHeight: baseViewport.height,
-          });
-        }
-
-        if (!isCancelled) {
-          setPages(renderedPages);
-          setAnnotations([]);
-          setSelectedAnnotationId(null);
-          setActivePage(1);
-        }
-      } catch (error: any) {
-        if (abortController.signal.aborted) return;
-        console.error("Failed to render PDF", error);
-        toast.error(error.message || "Failed to open PDF for editing.");
-      } finally {
-        if (!isCancelled) {
-          setIsRendering(false);
-        }
-      }
-    };
-
-    renderPages();
-
-    return () => {
-      isCancelled = true;
-      abortController.abort();
-    };
-  }, [documentId, selectedFile, isLoadingFiles]);
 
   useEffect(() => {
+    console.log("DEBUG: EditablePdfViewer - pages/activePage useEffect triggered. pages.length:", pages.length, "activePage:", activePage);
     if (pages.length === 0) {
       setActivePage(1);
     } else if (activePage > pages.length) {
       setActivePage(1);
     }
   }, [pages, activePage]);
+
+  // Original useEffect for rendering pages (depends on selectedFile) remains in its position.
+  // const [pages, setPages] = useState<PdfPageRender[]>([]); // This line was moved and removed
+  const [isRendering, setIsRendering] = useState(false);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<
+    string | null
+  >(null);
+  // const [activePage, setActivePage] = useState(1); // This line was moved and removed
+  const [isSaving, setIsSaving] = useState(false);
+  const [pendingAssetType, setPendingAssetType] = useState<
+    "image" | "signature" | null
+  >(null);
+  const assetInputRef = useRef<HTMLInputElement>(null);
 
   const measureTextDimensions = (text: string, fontSize: number) => {
     const canvas = document.createElement("canvas");
@@ -390,8 +326,22 @@ export function EditablePdfViewer({
 
     setIsSaving(true);
     try {
+      // CRITICAL FIX: Always fetch the ORIGINAL/BASE file (first version)
+      // to prevent edits from compounding on top of each other
+      const sortedPdfFiles = [...pdfFiles].sort((a, b) => {
+        const versionA = parseFloat(a.version || "0");
+        const versionB = parseFloat(b.version || "0");
+        return versionA - versionB;
+      });
+
+      const baseFile = sortedPdfFiles[0];
+
+      if (!baseFile) {
+        throw new Error("No base PDF file found");
+      }
+
       const response = await fetch(
-        `/api/documents/${documentId}/files/${selectedFile.id}/stream?download=1`,
+        `/api/documents/${documentId}/files/${baseFile.id}/stream?download=1`,
         {
           method: "GET",
           credentials: "include",
@@ -583,23 +533,37 @@ export function EditablePdfViewer({
         {selectedFile && (
           <>
             <div className="flex flex-wrap items-center gap-3">
-              <Select
-                value={selectedFile.id}
-                onValueChange={(value) => setSelectedFileId(value)}
-                disabled={pdfFiles.length <= 1}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Pick a PDF version" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pdfFiles.map((file) => (
-                    <SelectItem key={file.id} value={file.id}>
-                      {file.name}
-                      {file.version ? ` · v${file.version}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Only show file selector if no specific file was selected (initialFileId is null) */}
+              {!initialFileId && pdfFiles.length > 1 && (
+                <Select
+                  value={internalSelectedFileId ?? ""}
+                  onValueChange={(value) => setInternalSelectedFileId(value)}
+                  disabled={pdfFiles.length <= 1}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Pick a PDF version" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pdfFiles.map((file) => (
+                      <SelectItem key={file.id} value={file.id}>
+                        {file.name}
+                        {file.version ? ` · v${file.version}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Show selected file info when viewing a specific version */}
+              {initialFileId && selectedFile && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    {selectedFile.name}
+                    {selectedFile.version ? ` · v${selectedFile.version}` : ""}
+                  </span>
+                </div>
+              )}
 
               <Select
                 value={String(activePage)}

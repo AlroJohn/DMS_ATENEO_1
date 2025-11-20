@@ -58,4 +58,18 @@ export class DocumentCheckoutController {
 
     return sendSuccess(res, result.data);
   });
+
+  /**
+   * GET /api/files/:fileId/status
+   */
+  getFileCheckoutStatus = asyncHandler(async (req: Request, res: Response) => {
+    const { fileId } = req.params;
+    const result = await this.checkoutService.getCheckoutStatus(fileId);
+
+    if (!result.success) {
+      return sendError(res, result.error || 'Failed to get checkout status', result.statusCode || 400);
+    }
+
+    return sendSuccess(res, result.data);
+  });
 }
