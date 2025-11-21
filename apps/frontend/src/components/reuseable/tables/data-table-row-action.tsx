@@ -107,7 +107,7 @@ export function DataTableRowActions<TData>({
   };
 
   const handleViewDocument = () => {
-    router.push(`/documents/${document.id}`);
+    router.push(`/documents/${document.id}/view-documents`);
   };
 
   const handleOpenEditor = () => {
@@ -300,10 +300,6 @@ export function DataTableRowActions<TData>({
               View Document
             </DropdownMenuItem>
           )}
-
-          {/* Edit PDF - opens the in-app editor */}
-
-
           {/* Sign Document - for users with signing permissions on owned documents */}
           {canSignDoc && (
             <DropdownMenuItem onClick={(e) => handleAction(e, handleSign)}>

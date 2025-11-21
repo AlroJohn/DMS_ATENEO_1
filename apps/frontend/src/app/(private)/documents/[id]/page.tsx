@@ -47,7 +47,10 @@ export default function DocumentDetailPage({
 }: {
   params: Promise<{ id: string }> | { id: string };
 }) {
-  const resolvedParams = typeof (paramsPromise as any).then === "function" ? use(paramsPromise as Promise<{ id: string }>) : (paramsPromise as { id: string });
+  const resolvedParams =
+    typeof (paramsPromise as any).then === "function"
+      ? use(paramsPromise as Promise<{ id: string }>)
+      : (paramsPromise as { id: string });
   const documentId = resolvedParams.id;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,11 +91,16 @@ export default function DocumentDetailPage({
     }
     // Fallback to primary candidate or first file if no specific fileId or it's not found
     const placeholderPattern = /placeholder/i;
-    const primaryCandidate = files.find((file) => !placeholderPattern.test(file.name));
+    const primaryCandidate = files.find(
+      (file) => !placeholderPattern.test(file.name)
+    );
     return primaryCandidate || files[0];
   }, [files, fileIdFromUrl]);
 
-  const pdfFiles = useMemo(() => files.filter((file) => isPdfFile(file)), [files]);
+  const pdfFiles = useMemo(
+    () => files.filter((file) => isPdfFile(file)),
+    [files]
+  );
   const editableFileFromUrl = useMemo(() => {
     if (fileIdFromUrl) {
       const file = pdfFiles.find((f) => f.id === fileIdFromUrl);
@@ -101,13 +109,17 @@ export default function DocumentDetailPage({
     return null;
   }, [pdfFiles, fileIdFromUrl]);
 
-  const defaultEditableFileId = editableFileFromUrl?.id ?? pdfFiles[0]?.id ?? null;
+  const defaultEditableFileId =
+    editableFileFromUrl?.id ?? pdfFiles[0]?.id ?? null;
   const hasEditableFile = pdfFiles.length > 0;
 
   const previewMime = (previewFile?.type || "").toLowerCase();
   const isPreviewSupported =
-    Boolean(previewFile) && (previewMime.includes("pdf") || previewMime.startsWith("image/"));
-  const isPlaceholderPreview = previewFile ? /placeholder/i.test(previewFile.name) : false;
+    Boolean(previewFile) &&
+    (previewMime.includes("pdf") || previewMime.startsWith("image/"));
+  const isPlaceholderPreview = previewFile
+    ? /placeholder/i.test(previewFile.name)
+    : false;
 
   const documentIdForRoutes = document?.document_id || documentId;
   const previewBaseUrl = previewFile
@@ -141,22 +153,11 @@ export default function DocumentDetailPage({
     }
     const nextQuery = currentParams.toString();
     router.replace(
-      nextQuery ? `/documents/${documentId}?${nextQuery}` : `/documents/${documentId}`,
+      nextQuery
+        ? `/documents/${documentId}?${nextQuery}`
+        : `/documents/${documentId}`,
       { scroll: false }
     );
-  };
-
-  const handleOpenEditor = () => {
-    if (filesLoading) {
-      toast.error("Document files are still loading. Please wait a moment.");
-      return;
-    }
-    if (!hasEditableFile) {
-      toast.error("No PDF file is available for editing yet. Upload a PDF to enable editing.");
-      return;
-    }
-    setIsEditorOpen(true);
-    updateEditorQuery(true);
   };
 
   const handleCloseEditor = () => {
@@ -173,8 +174,11 @@ export default function DocumentDetailPage({
   const formatFileSize = (bytes?: number) => {
     if (!bytes || Number.isNaN(bytes)) return "-";
     if (bytes === 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"]; 
-    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const index = Math.min(
+      Math.floor(Math.log(bytes) / Math.log(1024)),
+      units.length - 1
+    );
     const value = bytes / Math.pow(1024, index);
     return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
   };
@@ -195,11 +199,11 @@ export default function DocumentDetailPage({
   const handleShareDocument = async (userIds: string[]) => {
     try {
       const response = await fetch(`/api/documents/${documentId}/share`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify({
           userIds,
         }),
@@ -208,21 +212,23 @@ export default function DocumentDetailPage({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to share document');
+        throw new Error(result.error?.message || "Failed to share document");
       }
 
       // Show success toast notification
-      toast.success('Document shared successfully!', {
+      toast.success("Document shared successfully!", {
         description: `${userIds.length} user(s) have been granted access to this document.`,
       });
-      
+
       // Optionally refetch document data to update UI
       refetch();
     } catch (error: any) {
-      console.error('Error sharing document:', error);
+      console.error("Error sharing document:", error);
       // Show error toast notification
-      toast.error('Failed to share document', {
-        description: error.message || 'An unexpected error occurred while sharing the document.',
+      toast.error("Failed to share document", {
+        description:
+          error.message ||
+          "An unexpected error occurred while sharing the document.",
       });
       throw error;
     }
@@ -236,9 +242,20 @@ export default function DocumentDetailPage({
     const status = document?.status || "unknown";
     const normalized = status.toLowerCase().replace(/[\s_-]+/g, "");
 
-    const variants: Record<string, { label: string; variant: "default" | "outline" | "secondary" | "destructive", className?: string }> = {
+    const variants: Record<
+      string,
+      {
+        label: string;
+        variant: "default" | "outline" | "secondary" | "destructive";
+        className?: string;
+      }
+    > = {
       completed: { label: "Completed", variant: "default", className: "" },
-      intransit: { label: "In Transit", variant: "secondary", className: "text-black dark:text-white" },
+      intransit: {
+        label: "In Transit",
+        variant: "secondary",
+        className: "text-black dark:text-white",
+      },
       dispatch: { label: "Dispatch", variant: "secondary", className: "" },
       canceled: { label: "Cancelled", variant: "destructive", className: "" },
       deleted: { label: "Deleted", variant: "destructive", className: "" },
@@ -246,9 +263,17 @@ export default function DocumentDetailPage({
       signed: { label: "Signed", variant: "default", className: "" },
     };
 
-    const config = variants[normalized] ?? { label: status, variant: "secondary", className: "" };
+    const config = variants[normalized] ?? {
+      label: status,
+      variant: "secondary",
+      className: "",
+    };
 
-    return <Badge variant={config.variant} className={config.className}>{config.label}</Badge>;
+    return (
+      <Badge variant={config.variant} className={config.className}>
+        {config.label}
+      </Badge>
+    );
   };
 
   if (isLoading) {
@@ -283,15 +308,22 @@ export default function DocumentDetailPage({
       <div className="p-1 md:p-2 lg:p-4 max-w-[95%] mx-auto w-full pt-2 pb-4">
         <Alert>
           <AlertTitle>Document not found</AlertTitle>
-          <AlertDescription>The requested document could not be located.</AlertDescription>
+          <AlertDescription>
+            The requested document could not be located.
+          </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  const classification = document.classification || document.detail?.classification || "Unclassified";
+  const classification =
+    document.classification ||
+    document.detail?.classification ||
+    "Unclassified";
   const department =
-    document.current_department?.name || document.detail?.department?.name || "Unknown department";
+    document.current_department?.name ||
+    document.detail?.department?.name ||
+    "Unknown department";
   const author = document.detail?.created_by || "Unknown";
 
   return (
@@ -299,10 +331,17 @@ export default function DocumentDetailPage({
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-          <p className="text-muted-foreground">Document ID: {document.document_id || documentId}</p>
+          <p className="text-muted-foreground">
+            Document ID: {document.document_id || documentId}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" onClick={handleGoBack} aria-label="Go back">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGoBack}
+            aria-label="Go back"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Button
@@ -313,21 +352,7 @@ export default function DocumentDetailPage({
             <Download className="mr-2 h-4 w-4" />
             Download
           </Button>
-          <Button
-            variant={isEditorOpen ? "default" : "outline"}
-            onClick={isEditorOpen ? handleCloseEditor : handleOpenEditor}
-            disabled={filesLoading || (!hasEditableFile && !isEditorOpen)}
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            {isEditorOpen ? "Close Editor" : "Edit PDF"}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => setIsShareModalOpen(true)}
-          >
-            <Share className="mr-2 h-4 w-4" />
-            Share
-          </Button>
+
           <Button
             onClick={() => setIsSigningModalOpen(true)}
             className="bg-green-600 hover:bg-green-700"
@@ -335,13 +360,6 @@ export default function DocumentDetailPage({
           >
             <Shield className="mr-2 h-4 w-4" />
             {canSign ? "Sign Document" : "Signing In Progress"}
-          </Button>
-          <Button
-            className="bg-purple-600 hover:bg-purple-700"
-            onClick={() => setIsReleaseModalOpen(true)}
-          >
-            <Send className="mr-2 h-4 w-4" />
-            Release
           </Button>
         </div>
       </div>
@@ -357,20 +375,23 @@ export default function DocumentDetailPage({
         />
       )}
 
-      {blockchainRedirectUrl && blockchainStatus && blockchainStatus !== "signed" && (
-        <Alert className="bg-blue-50 text-blue-900">
-          <ExternalLink className="h-4 w-4" />
-          <AlertTitle>DocOnChain signing required</AlertTitle>
-          <AlertDescription className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <span>
-              Continue the signing process on DocOnChain to finalize this document.
-            </span>
-            <Button size="sm" onClick={handleContinueSigning}>
-              Open DocOnChain
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      {blockchainRedirectUrl &&
+        blockchainStatus &&
+        blockchainStatus !== "signed" && (
+          <Alert className="bg-blue-50 text-blue-900">
+            <ExternalLink className="h-4 w-4" />
+            <AlertTitle>DocOnChain signing required</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <span>
+                Continue the signing process on DocOnChain to finalize this
+                document.
+              </span>
+              <Button size="sm" onClick={handleContinueSigning}>
+                Open DocOnChain
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-2 lg:col-span-2">
@@ -399,7 +420,10 @@ export default function DocumentDetailPage({
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : previewFile && isPreviewSupported && previewBaseUrl ? (
-                <div className="flex-1 flex items-center justify-center overflow-hidden rounded-lg border bg-background min-h-[400px] md:min-h-[500px] lg:min-h-[650px] cursor-pointer" onClick={handlePreviewClick}>
+                <div
+                  className="flex-1 flex items-center justify-center overflow-hidden rounded-lg border bg-background min-h-[400px] md:min-h-[500px] lg:min-h-[650px] cursor-pointer"
+                  onClick={handlePreviewClick}
+                >
                   {previewMime.startsWith("image/") ? (
                     <img
                       src={previewBaseUrl}
@@ -415,7 +439,10 @@ export default function DocumentDetailPage({
                   )}
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/10 min-h-[400px] md:min-h-[500px] lg:min-h-[650px] p-6 text-center cursor-pointer" onClick={handlePreviewClick}>
+                <div
+                  className="flex-1 flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/10 min-h-[400px] md:min-h-[500px] lg:min-h-[650px] p-6 text-center cursor-pointer"
+                  onClick={handlePreviewClick}
+                >
                   <FileText className="h-12 w-12 text-muted-foreground" />
                   {previewFile ? (
                     <>
@@ -430,7 +457,9 @@ export default function DocumentDetailPage({
                     </>
                   ) : (
                     <>
-                      <p className="text-muted-foreground">No files uploaded for this document yet.</p>
+                      <p className="text-muted-foreground">
+                        No files uploaded for this document yet.
+                      </p>
                       <p className="text-sm text-muted-foreground mt-2">
                         Upload a file to enable previews and DocOnChain signing.
                       </p>
@@ -444,10 +473,6 @@ export default function DocumentDetailPage({
               )}
             </CardContent>
           </Card>
-
-
-
-
         </div>
 
         <div className="space-y-2">
@@ -472,7 +497,9 @@ export default function DocumentDetailPage({
                     <Building className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium">Department</p>
-                      <p className="text-sm text-muted-foreground">{department}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {department}
+                      </p>
                     </div>
                   </div>
 
@@ -480,7 +507,6 @@ export default function DocumentDetailPage({
                     {statusBadge()}
                     <Badge variant="outline">{classification}</Badge>
                   </div>
-
                 </div>
 
                 <div className="space-y-4">
@@ -497,7 +523,9 @@ export default function DocumentDetailPage({
                     <div>
                       <p className="text-sm font-medium">Created</p>
                       <p className="text-sm text-muted-foreground">
-                        {document.created_at ? new Date(document.created_at).toLocaleString() : "Unknown"}
+                        {document.created_at
+                          ? new Date(document.created_at).toLocaleString()
+                          : "Unknown"}
                       </p>
                     </div>
                   </div>
@@ -508,7 +536,9 @@ export default function DocumentDetailPage({
                         <Hash className="h-4 w-4 text-muted-foreground" />
                         <p className="text-sm font-medium">Transaction Hash</p>
                       </div>
-                      <p className="break-all text-xs font-mono text-muted-foreground">{transactionHash}</p>
+                      <p className="break-all text-xs font-mono text-muted-foreground">
+                        {transactionHash}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -523,22 +553,34 @@ export default function DocumentDetailPage({
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant={blockchainStatus === "signed" ? "default" : "secondary"}>
-                  {blockchainStatus ? blockchainStatus.toUpperCase() : "UNSIGNED"}
+                <Badge
+                  variant={
+                    blockchainStatus === "signed" ? "default" : "secondary"
+                  }
+                >
+                  {blockchainStatus
+                    ? blockchainStatus.toUpperCase()
+                    : "UNSIGNED"}
                 </Badge>
               </div>
 
               {projectUuid && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Project UUID</p>
-                  <p className="break-all text-xs font-mono text-muted-foreground">{projectUuid}</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Project UUID
+                  </p>
+                  <p className="break-all text-xs font-mono text-muted-foreground">
+                    {projectUuid}
+                  </p>
                 </div>
               )}
 
               {document.blockchain?.signedAt && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Signed At</span>
-                  <span>{new Date(document.blockchain.signedAt).toLocaleString()}</span>
+                  <span>
+                    {new Date(document.blockchain.signedAt).toLocaleString()}
+                  </span>
                 </div>
               )}
 
@@ -564,7 +606,9 @@ export default function DocumentDetailPage({
                 <div className="flex items-center justify-between rounded border p-2">
                   <div>
                     <p className="text-sm font-medium">Version 1.0</p>
-                    <p className="text-xs text-muted-foreground">Current version</p>
+                    <p className="text-xs text-muted-foreground">
+                      Current version
+                    </p>
                   </div>
                   <Badge variant="outline">Current</Badge>
                 </div>
@@ -591,7 +635,8 @@ export default function DocumentDetailPage({
                 </div>
               ) : files.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No files uploaded yet. Upload a file to enable preview, downloads, and signing.
+                  No files uploaded yet. Upload a file to enable preview,
+                  downloads, and signing.
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -605,12 +650,20 @@ export default function DocumentDetailPage({
                         <div className="space-y-1">
                           <p className="text-sm font-medium">{file.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {file.type || "Unknown type"} • {formatFileSize(file.size)} • Uploaded {formatDate(file.uploadDate)}
+                            {file.type || "Unknown type"} •{" "}
+                            {formatFileSize(file.size)} • Uploaded{" "}
+                            {formatDate(file.uploadDate)}
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {file.isPrimary && <Badge variant="default">Primary</Badge>}
-                            {isPlaceholder && <Badge variant="secondary">Placeholder</Badge>}
-                            {file.version && <Badge variant="outline">v{file.version}</Badge>}
+                            {file.isPrimary && (
+                              <Badge variant="default">Primary</Badge>
+                            )}
+                            {isPlaceholder && (
+                              <Badge variant="secondary">Placeholder</Badge>
+                            )}
+                            {file.version && (
+                              <Badge variant="outline">v{file.version}</Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -629,7 +682,8 @@ export default function DocumentDetailPage({
         document={{
           id: document.document_id,
           title,
-          hash: transactionHash || document.blockchain?.projectUuid || undefined,
+          hash:
+            transactionHash || document.blockchain?.projectUuid || undefined,
           blockchainStatus,
         }}
         onSigned={() => {
@@ -668,7 +722,10 @@ export default function DocumentDetailPage({
           contactPerson: document.detail?.created_by || "Unknown",
           contactOrganization: "",
           type: document.detail?.document_type?.name || "",
-          classification: document.classification || document.detail?.classification || "Unclassified",
+          classification:
+            document.classification ||
+            document.detail?.classification ||
+            "Unclassified",
           status: document.status || "unknown",
           activity: "",
           activityTime: "",
