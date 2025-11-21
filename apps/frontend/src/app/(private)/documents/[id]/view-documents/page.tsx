@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, use, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -35,6 +35,7 @@ export default function ViewDocumentPage({
   const documentId = resolvedParams.id;
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { document, isLoading, error } = useDocumentDetail(documentId);
   const {
     files,
@@ -43,6 +44,7 @@ export default function ViewDocumentPage({
   } = useDocumentFiles(documentId);
 
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const fileIdFromUrl = searchParams?.get("fileId") || null;
 
   const title = useMemo(() => {
     return (
@@ -55,10 +57,15 @@ export default function ViewDocumentPage({
 
   const previewFile = useMemo(() => {
     if (!files || files.length === 0) return null;
+    // Prefer explicit fileId when provided
+    if (fileIdFromUrl) {
+      const match = files.find((file) => file.id === fileIdFromUrl);
+      if (match) return match;
+    }
     const placeholderPattern = /placeholder/i;
     const primaryCandidate = files.find((file) => !placeholderPattern.test(file.name));
     return primaryCandidate || files[0];
-  }, [files]);
+  }, [files, fileIdFromUrl]);
 
   const previewMime = (previewFile?.type || "").toLowerCase();
   const isPreviewSupported =

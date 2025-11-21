@@ -83,7 +83,7 @@ interface EditablePdfViewerProps {
   initialFileId?: string | null;
   isLoadingFiles: boolean;
   onExit: () => void;
-  onSaved: () => void;
+  onSaved: (newFileId?: string) => void;
 }
 
 const isPdfLikeFile = (file?: DocumentFileMetadata | null) => {
@@ -239,15 +239,7 @@ export function EditablePdfViewer({
   const [isRendering, setIsRendering] = useState(false);
   const RENDER_SCALE = 1.4;
 
-  console.log("DEBUG: EditablePdfViewer - pages state:", pages);
-
   useEffect(() => {
-    console.log(
-      "DEBUG: EditablePdfViewer - pages/activePage useEffect triggered. pages.length:",
-      pages.length,
-      "activePage:",
-      activePage
-    );
     if (pages.length === 0) {
       setActivePage(1);
     } else if (activePage > pages.length) {
@@ -600,6 +592,8 @@ export function EditablePdfViewer({
           const textValue = annotation.text || "";
           const rectWidth = renderWidth;
           const rectHeight = renderHeight;
+          // Lift the baseline a bit more so saved text aligns with on-canvas position
+          const baselineNudge = 4 * scaleY;
           const resolvedBg =
             annotation.backgroundColor === undefined
               ? "#ffffff"
@@ -614,7 +608,8 @@ export function EditablePdfViewer({
               color: bgColor,
             });
           }
-          const textY = rectY + rectHeight - fontSize;
+          const textHeight = font.heightAtSize(fontSize);
+          const textY = rectY + rectHeight - textHeight + baselineNudge;
           page.drawText(textValue, {
             x: rectX,
             y: textY,
@@ -674,7 +669,8 @@ export function EditablePdfViewer({
         "Saved a new PDF version. The previous file remains available."
       );
       clearAnnotations();
-      onSaved();
+      const newFileId = (uploadResult.data && uploadResult.data[0]?.id) || null;
+      onSaved(newFileId ?? undefined);
     } catch (error: any) {
       console.error("Failed to save PDF edits", error);
       toast.error(error.message || "Unable to save changes. Please try again.");
@@ -695,7 +691,7 @@ export function EditablePdfViewer({
     );
     if (!annotation) return null;
     return (
-      <div className="rounded-md  bg-background p-3 shadow-none">
+      <div className="rounded-md  bg-background p-4 shadow-none">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium capitalize">{annotation.type}</p>
@@ -719,7 +715,7 @@ export function EditablePdfViewer({
               </label>
               <textarea
                 rows={3}
-                className="mt-1 w-full rounded border px-2 py-1 text-sm whitespace-nowrap"
+                className="mt-1 w-full rounded border px-2 py-0 text-sm whitespace-nowrap"
                 value={annotation.text}
                 onChange={(event) => {
                   const newText = event.target.value;
@@ -1094,7 +1090,7 @@ export function EditablePdfViewer({
             </p>
 
             <div className="flex flex-col gap-4 lg:flex-row">
-              <div className="flex-1 overflow-auto rounded-md border bg-background p-3">
+              <div className="flex-1 overflow-auto bg-transparent p-0">
                 {isRendering && (
                   <div className="flex flex-col items-center justify-center gap-2 py-16">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -1113,11 +1109,8 @@ export function EditablePdfViewer({
                 {!isRendering &&
                   pages.map((page) => (
                     <div key={page.pageNumber} className="mb-6">
-                      <div className="mb-2 text-xs font-medium text-muted-foreground">
-                        Page {page.pageNumber}
-                      </div>
                       <div
-                        className="relative rounded border bg-white shadow-none"
+                        className="relative"
                         style={{ width: page.width, height: page.height }}
                       >
                         <img
@@ -1175,7 +1168,7 @@ export function EditablePdfViewer({
                                 >
                                   {isText ? (
                                     isEditing ? (
-                                    <textarea
+                                      <textarea
                                         rows={1}
                                         className="
                                           annotation-input
@@ -1183,14 +1176,14 @@ export function EditablePdfViewer({
                                           w-full
                                           resize-none
                                           outline-none
-                                          p-0
+                                          pb-2
                                           leading-none
                                           overflow-hidden
                                         "
                                         value={annotation.text}
                                         style={{
                                           fontSize: displayFontSize,
-                                          lineHeight: `${displayFontSize + 2}px`,
+                                          lineHeight: `${displayFontSize}px`,
                                           whiteSpace: "pre-wrap",
                                           fontFamily: getFontStyle(
                                             annotation.fontName
@@ -1232,7 +1225,7 @@ export function EditablePdfViewer({
                                         className="h-full w-full cursor-text select-none"
                                         style={{
                                           fontSize: displayFontSize,
-                                          lineHeight: `${displayFontSize + 2}px`,
+                                          lineHeight: `${displayFontSize}px`,
                                           whiteSpace: "pre-wrap",
                                           fontFamily: getFontStyle(
                                             annotation.fontName

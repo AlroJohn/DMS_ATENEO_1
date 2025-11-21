@@ -68,10 +68,15 @@ export default function DocumentDetailPage({
   const editorModeParam = searchParams?.get("mode");
   const fileIdFromUrl = searchParams?.get("fileId");
   const [isEditorOpen, setIsEditorOpen] = useState(editorModeParam === "edit");
+  const [isRedirectingToView, setIsRedirectingToView] = useState(false);
 
   useEffect(() => {
     setIsEditorOpen(editorModeParam === "edit");
   }, [editorModeParam]);
+
+  useEffect(() => {
+    router.prefetch(`/documents/${documentId}/view-documents`);
+  }, [documentId, router]);
 
   const title = useMemo(() => {
     return (
@@ -165,10 +170,26 @@ export default function DocumentDetailPage({
     updateEditorQuery(false);
   };
 
-  const handleEditorSaved = () => {
+  const handleEditorSaved = async (newFileId?: string) => {
+    const targetFileId =
+      newFileId ||
+      (files?.length ? files[files.length - 1]?.id : null) ||
+      fileIdFromUrl ||
+      "";
+
+    setIsRedirectingToView(true);
+
+    // refresh data in background but redirect immediately
     refetchFiles();
     refetch();
-    handleCloseEditor();
+
+    router.replace(
+      targetFileId
+        ? `/documents/${documentId}/view-documents?fileId=${targetFileId}`
+        : `/documents/${documentId}/view-documents`
+    );
+
+    setIsEditorOpen(false);
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -328,6 +349,15 @@ export default function DocumentDetailPage({
 
   return (
     <div className="flex flex-col gap-2 p-1 md:p-2 lg:p-4 mx-auto w-full pb-2">
+      {isRedirectingToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex items-center gap-2 rounded-md border bg-white/90 px-4 py-3 text-sm text-muted-foreground shadow-lg">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Opening the updated document…</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
