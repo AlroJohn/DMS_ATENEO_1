@@ -56,6 +56,10 @@ interface TextAnnotation extends BaseAnnotation {
   text: string;
   fontSize: number;
   fontName: StandardFonts;
+  fontFamily?: FontFamilyId;
+  isBold?: boolean;
+  isItalic?: boolean;
+  listStyle?: ListStyleType;
   backgroundColor?: string | null;
   textColor?: string | null;
 }
@@ -85,6 +89,9 @@ interface EditablePdfViewerProps {
   onExit: () => void;
   onSaved: (newFileId?: string) => void;
 }
+
+type FontFamilyId = "helvetica" | "times" | "courier" | "symbol";
+type ListStyleType = "none" | "bullet" | "number";
 
 const isPdfLikeFile = (file?: DocumentFileMetadata | null) => {
   if (!file) return false;
@@ -139,6 +146,118 @@ const hexToRgbColor = (hex?: string | null) => {
   return rgb(r / 255, g / 255, b / 255);
 };
 
+const FONT_FAMILIES: Array<{
+  id: FontFamilyId;
+  label: string;
+  cssFamily: string;
+  variants: {
+    regular: StandardFonts;
+    bold?: StandardFonts;
+    italic?: StandardFonts;
+    boldItalic?: StandardFonts;
+  };
+}> = [
+  {
+    id: "helvetica",
+    label: "Helvetica",
+    cssFamily: "Helvetica, Arial, sans-serif",
+    variants: {
+      regular: StandardFonts.Helvetica,
+      bold: StandardFonts.HelveticaBold,
+      italic: StandardFonts.HelveticaOblique,
+      boldItalic: StandardFonts.HelveticaBoldOblique,
+    },
+  },
+  {
+    id: "times",
+    label: "Times",
+    cssFamily: "'Times New Roman', Times, serif",
+    variants: {
+      regular: StandardFonts.TimesRoman,
+      bold: StandardFonts.TimesRomanBold,
+      italic: StandardFonts.TimesRomanItalic,
+      boldItalic: StandardFonts.TimesRomanBoldItalic,
+    },
+  },
+  {
+    id: "courier",
+    label: "Courier",
+    cssFamily: "'Courier New', Courier, monospace",
+    variants: {
+      regular: StandardFonts.Courier,
+      bold: StandardFonts.CourierBold,
+      italic: StandardFonts.CourierOblique,
+      boldItalic: StandardFonts.CourierBoldOblique,
+    },
+  },
+  {
+    id: "symbol",
+    label: "Symbol",
+    cssFamily: "Symbol, serif",
+    variants: {
+      regular: StandardFonts.Symbol,
+    },
+  },
+];
+
+const findFamilyByFontName = (fontName: StandardFonts | undefined) =>
+  FONT_FAMILIES.find((family) =>
+    Object.values(family.variants).some((variant) => variant === fontName)
+  );
+
+const resolveFontVariant = ({
+  fontFamily,
+  fontName,
+  isBold,
+  isItalic,
+}: {
+  fontFamily?: FontFamilyId;
+  fontName?: StandardFonts;
+  isBold?: boolean;
+  isItalic?: boolean;
+}) => {
+  const family =
+    FONT_FAMILIES.find((item) => item.id === fontFamily) ||
+    findFamilyByFontName(fontName) ||
+    FONT_FAMILIES[0];
+
+  const wantsBold = Boolean(isBold);
+  const wantsItalic = Boolean(isItalic);
+
+  const variant =
+    (wantsBold && wantsItalic && family.variants.boldItalic) ||
+    (wantsBold && family.variants.bold) ||
+    (wantsItalic && family.variants.italic) ||
+    family.variants.regular ||
+    fontName ||
+    FONT_FAMILIES[0].variants.regular;
+
+  return {
+    pdfFont: variant,
+    cssFamily: family.cssFamily,
+    fontWeight: wantsBold ? "700" : undefined,
+    fontStyle: wantsItalic ? "italic" : undefined,
+    familyId: family.id,
+  };
+};
+
+const formatListText = (text: string, listStyle?: ListStyleType) => {
+  if (!text) return "";
+  if (listStyle === "bullet") {
+    return text
+      .split("\n")
+      .map((line) => `• ${line}`)
+      .join("\n");
+  }
+  if (listStyle === "number") {
+    return text
+      .split("\n")
+      .map((line, idx) => `${idx + 1}. ${line}`)
+      .join("\n");
+  }
+  return text;
+};
+
 export function EditablePdfViewer({
   documentId,
   files,
@@ -147,58 +266,15 @@ export function EditablePdfViewer({
   onExit,
   onSaved,
 }: EditablePdfViewerProps) {
-  const FONT_OPTIONS: Array<{
-    id: StandardFonts;
-    label: string;
-    cssFamily: string;
-    fontWeight?: string;
-    fontStyle?: string;
-  }> = [
-    {
-      id: StandardFonts.Helvetica,
-      label: "Helvetica",
-      cssFamily: "Helvetica, Arial, sans-serif",
-    },
-    {
-      id: StandardFonts.HelveticaBold,
-      label: "Helvetica Bold",
-      cssFamily: "Helvetica, Arial, sans-serif",
-      fontWeight: "700",
-    },
-    {
-      id: StandardFonts.HelveticaOblique,
-      label: "Helvetica Italic",
-      cssFamily: "Helvetica, Arial, sans-serif",
-      fontStyle: "italic",
-    },
-    {
-      id: StandardFonts.TimesRoman,
-      label: "Times",
-      cssFamily: "'Times New Roman', Times, serif",
-    },
-    {
-      id: StandardFonts.TimesRomanBold,
-      label: "Times Bold",
-      cssFamily: "'Times New Roman', Times, serif",
-      fontWeight: "700",
-    },
-    {
-      id: StandardFonts.TimesRomanItalic,
-      label: "Times Italic",
-      cssFamily: "'Times New Roman', Times, serif",
-      fontStyle: "italic",
-    },
-    {
-      id: StandardFonts.Courier,
-      label: "Courier",
-      cssFamily: "'Courier New', Courier, monospace",
-    },
-  ];
-
-  const getFontStyle = (fontName: StandardFonts | undefined) => {
-    const fallback = FONT_OPTIONS[0];
-    if (!fontName) return fallback;
-    return FONT_OPTIONS.find((f) => f.id === fontName) ?? fallback;
+  const getFontStyleForAnnotation = (
+    annotation?: Partial<TextAnnotation>
+  ) => {
+    return resolveFontVariant({
+      fontFamily: annotation?.fontFamily,
+      fontName: annotation?.fontName,
+      isBold: annotation?.isBold,
+      isItalic: annotation?.isItalic,
+    });
   };
 
   const pdfFiles = useMemo(
@@ -374,7 +450,11 @@ export function EditablePdfViewer({
   const measureTextDimensions = (
     text: string,
     fontSize: number,
-    fontName?: StandardFonts
+    fontStyleInfo: {
+      cssFamily: string;
+      fontWeight?: string;
+      fontStyle?: string;
+    }
   ) => {
     const safeFontSize = getSafeFontSize(fontSize);
     const canvas = document.createElement("canvas");
@@ -382,10 +462,9 @@ export function EditablePdfViewer({
     if (!context) {
       return { width: 80, height: safeFontSize + 4 };
     }
-    const fontStyle = getFontStyle(fontName);
-    const weight = fontStyle.fontWeight ? `${fontStyle.fontWeight} ` : "";
-    const style = fontStyle.fontStyle ? `${fontStyle.fontStyle} ` : "";
-    context.font = `${style}${weight}${safeFontSize}px ${fontStyle.cssFamily}`;
+    const weight = fontStyleInfo.fontWeight ? `${fontStyleInfo.fontWeight} ` : "";
+    const style = fontStyleInfo.fontStyle ? `${fontStyleInfo.fontStyle} ` : "";
+    context.font = `${style}${weight}${safeFontSize}px ${fontStyleInfo.cssFamily}`;
 
     const lines = text.split("\n");
     const widths = lines.map((line) => context.measureText(line).width);
@@ -399,11 +478,16 @@ export function EditablePdfViewer({
     if (!selectedFile || pages.length === 0) return;
     const initialText = "Enter text";
     const initialFontSize = 14;
+    const initialFont = resolveFontVariant({
+      fontFamily: "helvetica",
+      isBold: false,
+      isItalic: false,
+    });
     const { width: initialWidth, height: initialHeight } =
       measureTextDimensions(
-        initialText,
+        formatListText(initialText, "none"),
         initialFontSize,
-        StandardFonts.Helvetica
+        initialFont
       );
     const newAnnotation: TextAnnotation = {
       id: createAnnotationId(),
@@ -415,7 +499,11 @@ export function EditablePdfViewer({
       height: initialHeight,
       text: initialText,
       fontSize: initialFontSize,
-      fontName: StandardFonts.Helvetica,
+      fontName: initialFont.pdfFont,
+      fontFamily: "helvetica",
+      isBold: false,
+      isItalic: false,
+      listStyle: "none",
       backgroundColor: "#ffffff",
       textColor: "#000000",
     };
@@ -586,10 +674,17 @@ export function EditablePdfViewer({
         if (annotation.type === "text") {
           const baseFontSize = getSafeFontSize(annotation.fontSize);
           const fontSize = baseFontSize * scaleY;
-          const font = await getFont(
-            annotation.fontName || StandardFonts.Helvetica
+          const resolvedFont = resolveFontVariant({
+            fontFamily: annotation.fontFamily,
+            fontName: annotation.fontName,
+            isBold: annotation.isBold,
+            isItalic: annotation.isItalic,
+          });
+          const font = await getFont(resolvedFont.pdfFont);
+          const textValue = formatListText(
+            annotation.text || "",
+            annotation.listStyle
           );
-          const textValue = annotation.text || "";
           const rectWidth = renderWidth;
           const rectHeight = renderHeight;
           // Lift the baseline a bit more so saved text aligns with on-canvas position
@@ -719,10 +814,15 @@ export function EditablePdfViewer({
                 value={annotation.text}
                 onChange={(event) => {
                   const newText = event.target.value;
-                  const dims = measureTextDimensions(
+                  const formatted = formatListText(
                     newText,
+                    annotation.listStyle
+                  );
+                  const style = getFontStyleForAnnotation(annotation);
+                  const dims = measureTextDimensions(
+                    formatted,
                     annotation.fontSize,
-                    annotation.fontName
+                    style
                   );
                   updateAnnotation(annotation.id, {
                     text: newText,
@@ -739,24 +839,34 @@ export function EditablePdfViewer({
                 </label>
                 <select
                   className="mt-1 w-full rounded border px-2 py-1 text-sm"
-                  value={annotation.fontName}
+                  value={annotation.fontFamily || "helvetica"}
                   onChange={(event) => {
-                    const nextFont = event.target.value as StandardFonts;
-                    const dims = measureTextDimensions(
+                    const nextFamily = event.target.value as FontFamilyId;
+                    const style = resolveFontVariant({
+                      fontFamily: nextFamily,
+                      isBold: annotation.isBold,
+                      isItalic: annotation.isItalic,
+                    });
+                    const formatted = formatListText(
                       annotation.text,
+                      annotation.listStyle
+                    );
+                    const dims = measureTextDimensions(
+                      formatted,
                       annotation.fontSize,
-                      nextFont
+                      style
                     );
                     updateAnnotation(annotation.id, {
-                      fontName: nextFont,
+                      fontName: style.pdfFont,
+                      fontFamily: style.familyId,
                       width: dims.width,
                       height: dims.height,
                     });
                   }}
                 >
-                  {FONT_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
+                  {FONT_FAMILIES.map((family) => (
+                    <option key={family.id} value={family.id}>
+                      {family.label}
                     </option>
                   ))}
                 </select>
@@ -787,10 +897,15 @@ export function EditablePdfViewer({
                     }
                     const raw = Number(rawStr);
                     const nextSize = clampFontSize(raw);
-                    const dims = measureTextDimensions(
+                    const formatted = formatListText(
                       annotation.text,
+                      annotation.listStyle
+                    );
+                    const style = getFontStyleForAnnotation(annotation);
+                    const dims = measureTextDimensions(
+                      formatted,
                       nextSize,
-                      annotation.fontName
+                      style
                     );
                     updateAnnotation(annotation.id, {
                       fontSize: nextSize,
@@ -800,6 +915,103 @@ export function EditablePdfViewer({
                   }}
                   className="mt-1 w-full rounded border px-2 py-1 text-sm"
                 />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={annotation.isBold ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const nextBold = !annotation.isBold;
+                  const style = resolveFontVariant({
+                    fontFamily: annotation.fontFamily,
+                    fontName: annotation.fontName,
+                    isBold: nextBold,
+                    isItalic: annotation.isItalic,
+                  });
+                  const formatted = formatListText(
+                    annotation.text,
+                    annotation.listStyle
+                  );
+                  const dims = measureTextDimensions(
+                    formatted,
+                    annotation.fontSize,
+                    style
+                  );
+                  updateAnnotation(annotation.id, {
+                    isBold: nextBold,
+                    fontName: style.pdfFont,
+                    fontFamily: style.familyId,
+                    width: dims.width,
+                    height: dims.height,
+                  });
+                }}
+              >
+                <span className="font-semibold">B</span>
+              </Button>
+              <Button
+                type="button"
+                variant={annotation.isItalic ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const nextItalic = !annotation.isItalic;
+                  const style = resolveFontVariant({
+                    fontFamily: annotation.fontFamily,
+                    fontName: annotation.fontName,
+                    isBold: annotation.isBold,
+                    isItalic: nextItalic,
+                  });
+                  const formatted = formatListText(
+                    annotation.text,
+                    annotation.listStyle
+                  );
+                  const dims = measureTextDimensions(
+                    formatted,
+                    annotation.fontSize,
+                    style
+                  );
+                  updateAnnotation(annotation.id, {
+                    isItalic: nextItalic,
+                    fontName: style.pdfFont,
+                    fontFamily: style.familyId,
+                    width: dims.width,
+                    height: dims.height,
+                  });
+                }}
+              >
+                <span className="italic">I</span>
+              </Button>
+              <div className="flex-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  List style
+                </label>
+                <select
+                  className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                  value={annotation.listStyle ?? "none"}
+                  onChange={(event) => {
+                    const nextList = event.target.value as ListStyleType;
+                    const formatted = formatListText(
+                      annotation.text,
+                      nextList
+                    );
+                    const style = getFontStyleForAnnotation(annotation);
+                    const dims = measureTextDimensions(
+                      formatted,
+                      annotation.fontSize,
+                      style
+                    );
+                    updateAnnotation(annotation.id, {
+                      listStyle: nextList,
+                      width: dims.width,
+                      height: dims.height,
+                    });
+                  }}
+                >
+                  <option value="none">None</option>
+                  <option value="bullet">Bullets</option>
+                  <option value="number">Numbered</option>
+                </select>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -927,10 +1139,15 @@ export function EditablePdfViewer({
               onChange={(event) => {
                 const raw = Number(event.target.value);
                 const nextSize = clampFontSize(raw);
-                const dims = measureTextDimensions(
+                const formatted = formatListText(
                   annotation.text,
+                  annotation.listStyle
+                );
+                const style = getFontStyleForAnnotation(annotation);
+                const dims = measureTextDimensions(
+                  formatted,
                   nextSize,
-                  annotation.fontName
+                  style
                 );
                 updateAnnotation(annotation.id, {
                   fontSize: nextSize,
@@ -1142,6 +1359,14 @@ export function EditablePdfViewer({
                                   : undefined;
                               const isEditing =
                                 isText && editingTextId === annotation.id;
+                              const resolvedFont =
+                                getFontStyleForAnnotation(annotation);
+                              const formattedText = isText
+                                ? formatListText(
+                                    annotation.text,
+                                    annotation.listStyle
+                                  )
+                                : "";
 
                               return (
                                 <RndAnnotation
@@ -1185,15 +1410,9 @@ export function EditablePdfViewer({
                                           fontSize: displayFontSize,
                                           lineHeight: `${displayFontSize}px`,
                                           whiteSpace: "pre-wrap",
-                                          fontFamily: getFontStyle(
-                                            annotation.fontName
-                                          ).cssFamily,
-                                          fontWeight: getFontStyle(
-                                            annotation.fontName
-                                          ).fontWeight,
-                                          fontStyle: getFontStyle(
-                                            annotation.fontName
-                                          ).fontStyle,
+                                          fontFamily: resolvedFont.cssFamily,
+                                          fontWeight: resolvedFont.fontWeight,
+                                          fontStyle: resolvedFont.fontStyle,
                                           color:
                                             annotation.textColor || "#000000",
                                           backgroundColor:
@@ -1208,9 +1427,12 @@ export function EditablePdfViewer({
 
                                           const newText = el.value;
                                           const dims = measureTextDimensions(
-                                            newText,
+                                            formatListText(
+                                              newText,
+                                              annotation.listStyle
+                                            ),
                                             displayFontSize,
-                                            annotation.fontName
+                                            resolvedFont
                                           );
 
                                           updateAnnotation(annotation.id, {
@@ -1227,15 +1449,9 @@ export function EditablePdfViewer({
                                           fontSize: displayFontSize,
                                           lineHeight: `${displayFontSize}px`,
                                           whiteSpace: "pre-wrap",
-                                          fontFamily: getFontStyle(
-                                            annotation.fontName
-                                          ).cssFamily,
-                                          fontWeight: getFontStyle(
-                                            annotation.fontName
-                                          ).fontWeight,
-                                          fontStyle: getFontStyle(
-                                            annotation.fontName
-                                          ).fontStyle,
+                                          fontFamily: resolvedFont.cssFamily,
+                                          fontWeight: resolvedFont.fontWeight,
+                                          fontStyle: resolvedFont.fontStyle,
                                           color:
                                             annotation.textColor || "#000000",
                                           backgroundColor:
