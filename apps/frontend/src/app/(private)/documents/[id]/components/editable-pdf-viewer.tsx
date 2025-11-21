@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { Rnd } from "react-rnd";
@@ -56,6 +57,7 @@ interface TextAnnotation extends BaseAnnotation {
   fontSize: number;
   fontName: StandardFonts;
   backgroundColor?: string | null;
+  textColor?: string | null;
 }
 
 interface ImageAnnotation extends BaseAnnotation {
@@ -122,9 +124,13 @@ const hexToRgbColor = (hex?: string | null) => {
   if (!hex || hex === "transparent") return null;
   const normalized = hex.replace("#", "");
   if (![3, 6].includes(normalized.length)) return null;
-  const expand = normalized.length === 3
-    ? normalized.split("").map((c) => c + c).join("")
-    : normalized;
+  const expand =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : normalized;
   const num = parseInt(expand, 16);
   if (Number.isNaN(num)) return null;
   const r = (num >> 16) & 255;
@@ -231,6 +237,7 @@ export function EditablePdfViewer({
   const [pages, setPages] = useState<PdfPageRender[]>([]);
   const [activePage, setActivePage] = useState(1); // activePage also moved here as it's directly related to pages
   const [isRendering, setIsRendering] = useState(false);
+  const RENDER_SCALE = 1.4;
 
   console.log("DEBUG: EditablePdfViewer - pages state:", pages);
 
@@ -263,28 +270,33 @@ export function EditablePdfViewer({
       setIsRendering(true);
       try {
         const url = `/api/documents/${documentId}/files/${selectedFile.id}/stream?download=1`;
-        loadingTask = getDocument({
+        const task = getDocument({
           url,
           withCredentials: true,
           useWorkerFetch: true,
           isEvalSupported: false,
         });
+        loadingTask = task;
 
-        const pdf = await loadingTask.promise;
+        const pdf = await task.promise;
         const renderedPages: PdfPageRender[] = [];
 
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           const page = await pdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 1.4 });
+          const baseViewport = page.getViewport({ scale: 1 });
+          const renderViewport = page.getViewport({ scale: RENDER_SCALE });
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
           if (!context) {
             throw new Error("Unable to get canvas context for PDF rendering.");
           }
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+          canvas.width = renderViewport.width;
+          canvas.height = renderViewport.height;
 
-          const renderTask = page.render({ canvasContext: context, viewport });
+          const renderTask = page.render({
+            canvasContext: context,
+            viewport: renderViewport,
+          });
           renderTasks.push(renderTask);
           await renderTask.promise;
 
@@ -295,10 +307,10 @@ export function EditablePdfViewer({
           renderedPages.push({
             pageNumber,
             imageUrl,
-            width: viewport.width,
-            height: viewport.height,
-            pdfWidth: viewport.width,
-            pdfHeight: viewport.height,
+            width: renderViewport.width,
+            height: renderViewport.height,
+            pdfWidth: baseViewport.width,
+            pdfHeight: baseViewport.height,
           });
         }
 
@@ -362,25 +374,31 @@ export function EditablePdfViewer({
   >(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
 
+  const getSafeFontSize = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return 12;
+    return value;
+  };
+
   const measureTextDimensions = (
     text: string,
     fontSize: number,
     fontName?: StandardFonts
   ) => {
+    const safeFontSize = getSafeFontSize(fontSize);
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     if (!context) {
-      return { width: 80, height: fontSize + 4 };
+      return { width: 80, height: safeFontSize + 4 };
     }
     const fontStyle = getFontStyle(fontName);
     const weight = fontStyle.fontWeight ? `${fontStyle.fontWeight} ` : "";
     const style = fontStyle.fontStyle ? `${fontStyle.fontStyle} ` : "";
-    context.font = `${style}${weight}${fontSize}px ${fontStyle.cssFamily}`;
+    context.font = `${style}${weight}${safeFontSize}px ${fontStyle.cssFamily}`;
 
     const lines = text.split("\n");
     const widths = lines.map((line) => context.measureText(line).width);
     const maxWidth = Math.max(...widths);
-    const height = lines.length * (fontSize + 2);
+    const height = lines.length * (safeFontSize + 2);
 
     return { width: maxWidth + 8, height };
   };
@@ -407,6 +425,7 @@ export function EditablePdfViewer({
       fontSize: initialFontSize,
       fontName: StandardFonts.Helvetica,
       backgroundColor: "#ffffff",
+      textColor: "#000000",
     };
     setAnnotations((prev) => [...prev, newAnnotation]);
     setSelectedAnnotationId(newAnnotation.id);
@@ -565,39 +584,46 @@ export function EditablePdfViewer({
         if (!meta) continue;
         const page = pdfDoc.getPage(annotation.pageNumber - 1);
         const { width: pageWidth, height: pageHeight } = page.getSize();
-        const x = (annotation.x / meta.width) * pageWidth;
-        const renderWidth = (annotation.width / meta.width) * pageWidth;
-        const renderHeight = (annotation.height / meta.height) * pageHeight;
-        const yTop = pageHeight - (annotation.y / meta.height) * pageHeight;
-        const yBottom = yTop - renderHeight;
+        const scaleX = pageWidth / meta.width;
+        const scaleY = pageHeight / meta.height;
+        const renderWidth = annotation.width * scaleX;
+        const renderHeight = annotation.height * scaleY;
+        const rectX = annotation.x * scaleX;
+        const rectY = pageHeight - annotation.y * scaleY - renderHeight;
 
         if (annotation.type === "text") {
-          const fontSize = annotation.fontSize ?? 14;
+          const baseFontSize = getSafeFontSize(annotation.fontSize);
+          const fontSize = baseFontSize * scaleY;
           const font = await getFont(
             annotation.fontName || StandardFonts.Helvetica
           );
           const textValue = annotation.text || "";
-          const measuredTextWidth = font.widthOfTextAtSize(textValue, fontSize);
-          const rectWidth = Math.max(annotation.width, measuredTextWidth);
-          const rectHeight = Math.max(annotation.height, fontSize + 2);
-          const rectX = x;
-          const rectY = yBottom - 2;
-          page.drawRectangle({
-            x: rectX,
-            y: rectY,
-            width: rectWidth,
-            height: rectHeight,
-            color: rgb(1, 1, 1),
-          });
-          const textY = yBottom;
+          const rectWidth = renderWidth;
+          const rectHeight = renderHeight;
+          const resolvedBg =
+            annotation.backgroundColor === undefined
+              ? "#ffffff"
+              : annotation.backgroundColor;
+          const bgColor = hexToRgbColor(resolvedBg);
+          if (bgColor) {
+            page.drawRectangle({
+              x: rectX,
+              y: rectY,
+              width: rectWidth,
+              height: rectHeight,
+              color: bgColor,
+            });
+          }
+          const textY = rectY + rectHeight - fontSize;
           page.drawText(textValue, {
-            x,
+            x: rectX,
             y: textY,
             size: fontSize,
             font,
-            color: rgb(0, 0, 0),
-            maxWidth: annotation.width,
-            lineHeight: fontSize + 1,
+            color:
+              hexToRgbColor(annotation.textColor || "#000000") || rgb(0, 0, 0),
+            maxWidth: rectWidth,
+            lineHeight: fontSize,
           });
         } else if (
           annotation.type === "image" ||
@@ -608,8 +634,8 @@ export function EditablePdfViewer({
             ? await pdfDoc.embedPng(bytes)
             : await pdfDoc.embedJpg(bytes);
           page.drawImage(image, {
-            x,
-            y: yBottom,
+            x: rectX,
+            y: rectY,
             width: renderWidth,
             height: renderHeight,
           });
@@ -658,7 +684,7 @@ export function EditablePdfViewer({
   };
 
   const clampFontSize = (value: number) => {
-    if (Number.isNaN(value)) return 12;
+    if (Number.isNaN(value)) return 6;
     return Math.max(6, Math.min(value, 150));
   };
 
@@ -669,7 +695,7 @@ export function EditablePdfViewer({
     );
     if (!annotation) return null;
     return (
-      <div className="rounded-md border bg-background p-3 shadow-sm">
+      <div className="rounded-md  bg-background p-3 shadow-none">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium capitalize">{annotation.type}</p>
@@ -687,6 +713,29 @@ export function EditablePdfViewer({
         </div>
         {annotation.type === "text" && (
           <div className="mt-3 space-y-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">
+                Text
+              </label>
+              <textarea
+                rows={3}
+                className="mt-1 w-full rounded border px-2 py-1 text-sm whitespace-nowrap"
+                value={annotation.text}
+                onChange={(event) => {
+                  const newText = event.target.value;
+                  const dims = measureTextDimensions(
+                    newText,
+                    annotation.fontSize,
+                    annotation.fontName
+                  );
+                  updateAnnotation(annotation.id, {
+                    text: newText,
+                    width: dims.width,
+                    height: dims.height,
+                  });
+                }}
+              />
+            </div>
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <label className="text-xs font-medium text-muted-foreground">
@@ -725,9 +774,22 @@ export function EditablePdfViewer({
                   min={6}
                   max={150}
                   step={1}
-                  value={annotation.fontSize}
+                  value={
+                    Number.isNaN(annotation.fontSize) ||
+                    annotation.fontSize === undefined ||
+                    annotation.fontSize === null
+                      ? ""
+                      : annotation.fontSize
+                  }
                   onChange={(event) => {
-                    const raw = Number(event.target.value);
+                    const rawStr = event.target.value;
+                    if (rawStr === "") {
+                      updateAnnotation(annotation.id, {
+                        fontSize: Number.NaN,
+                      });
+                      return;
+                    }
+                    const raw = Number(rawStr);
                     const nextSize = clampFontSize(raw);
                     const dims = measureTextDimensions(
                       annotation.text,
@@ -744,12 +806,128 @@ export function EditablePdfViewer({
                 />
               </div>
             </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Text color
+                </label>
+                {(() => {
+                  const presetTextColors = [
+                    "#000000",
+                    "#1f2937",
+                    "#374151",
+                    "#0f172a",
+                    "#dc2626",
+                    "#16a34a",
+                    "#2563eb",
+                  ];
+                  const currentColor = annotation.textColor ?? "#000000";
+                  const normalized = currentColor.toLowerCase();
+                  const selectValue = presetTextColors.includes(normalized)
+                    ? normalized
+                    : "custom";
+
+                  return (
+                    <select
+                      className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                      value={selectValue}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (value === "custom") {
+                          return;
+                        }
+                        updateAnnotation(annotation.id, {
+                          textColor: value,
+                        });
+                      }}
+                    >
+                      <option value="#000000">Black</option>
+                      <option value="#1f2937">Dark gray</option>
+                      <option value="#374151">Slate</option>
+                      <option value="#0f172a">Navy</option>
+                      <option value="#dc2626">Red</option>
+                      <option value="#16a34a">Green</option>
+                      <option value="#2563eb">Blue</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  );
+                })()}
+              </div>
+              <div className="w-28">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Custom
+                </label>
+                <input
+                  type="color"
+                  className="mt-1 h-9 w-full cursor-pointer rounded border px-1 py-1"
+                  value={(annotation.textColor ?? "#000000") || "#000000"}
+                  onChange={(event) => {
+                    updateAnnotation(annotation.id, {
+                      textColor: event.target.value,
+                    });
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Background
+                </label>
+                <select
+                  className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                  value={
+                    annotation.backgroundColor === undefined
+                      ? "#ffffff"
+                      : annotation.backgroundColor ?? "transparent"
+                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    updateAnnotation(annotation.id, {
+                      backgroundColor: value === "transparent" ? null : value,
+                    });
+                  }}
+                >
+                  <option value="transparent">No fill</option>
+                  <option value="#ffffff">White</option>
+                  <option value="#f1f5f9">Light gray</option>
+                  <option value="#e3f2fd">Light blue</option>
+                  <option value="#fff3cd">Light yellow</option>
+                  <option value="#f8d7da">Light red</option>
+                </select>
+              </div>
+              <div className="w-28">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Custom
+                </label>
+                <input
+                  type="color"
+                  className="mt-1 h-9 w-full cursor-pointer rounded border px-1 py-1"
+                  value={
+                    (annotation.backgroundColor === undefined
+                      ? "#ffffff"
+                      : annotation.backgroundColor) || "#ffffff"
+                  }
+                  onChange={(event) => {
+                    updateAnnotation(annotation.id, {
+                      backgroundColor: event.target.value,
+                    });
+                  }}
+                />
+              </div>
+            </div>
             <input
               type="range"
               min={6}
               max={150}
               step={1}
-              value={annotation.fontSize}
+              value={
+                Number.isNaN(annotation.fontSize) ||
+                annotation.fontSize === undefined ||
+                annotation.fontSize === null
+                  ? 6
+                  : annotation.fontSize
+              }
               onChange={(event) => {
                 const raw = Number(event.target.value);
                 const nextSize = clampFontSize(raw);
@@ -939,7 +1117,7 @@ export function EditablePdfViewer({
                         Page {page.pageNumber}
                       </div>
                       <div
-                        className="relative rounded border bg-white shadow-sm"
+                        className="relative rounded border bg-white shadow-none"
                         style={{ width: page.width, height: page.height }}
                       >
                         <img
@@ -947,93 +1125,150 @@ export function EditablePdfViewer({
                           alt={`Page ${page.pageNumber}`}
                           className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
                         />
-                      <div
-                        className="absolute inset-0"
-                        style={{ width: page.width, height: page.height }}
-                        onMouseDown={handleCanvasBackgroundClick}
+                        <div
+                          className="absolute inset-0"
+                          style={{ width: page.width, height: page.height }}
+                          onMouseDown={handleCanvasBackgroundClick}
                         >
                           {annotations
                             .filter(
                               (annotation) =>
                                 annotation.pageNumber === page.pageNumber
                             )
-                            .map((annotation) => (
-                              <RndAnnotation
-                                key={annotation.id}
-                                annotation={annotation}
-                                selected={
-                                  annotation.id === selectedAnnotationId
-                                }
-                                onSelect={() =>
-                                  setSelectedAnnotationId(annotation.id)
-                                }
-                                onPositionChange={updateAnnotationPosition}
-                                onResize={updateAnnotationSize}
-                                onRemove={removeAnnotation}
-                              >
-                                {annotation.type === "text" ? (
-                                  <textarea
-                                    rows={1} // <-- important: start as 1 line only
-                                    className="
-                                      annotation-input
-                                      min-w-[24px]
-                                      w-full
-                                      resize-none
-                                      bg-white
-                                      text-sm
-                                      text-black
-                                      outline-none
-                                      p-0
-                                      leading-none
-                                      overflow-hidden
-                                    "
-                                    value={annotation.text}
-                                    style={{
-                                      fontSize: annotation.fontSize,
-                                      lineHeight: `${
-                                        annotation.fontSize + 2
-                                      }px`,
-                                      whiteSpace: "nowrap",
-                                      fontFamily: getFontStyle(
-                                        annotation.fontName
-                                      ).cssFamily,
-                                      fontWeight: getFontStyle(
-                                        annotation.fontName
-                                      ).fontWeight,
-                                      fontStyle: getFontStyle(
-                                        annotation.fontName
-                                      ).fontStyle,
-                                    }}
-                                    onChange={(event) => {
-                                      const el = event.target;
+                            .map((annotation) => {
+                              const isText = annotation.type === "text";
+                              const displayFontSize = getSafeFontSize(
+                                isText ? annotation.fontSize : undefined
+                              );
+                              const resolvedBg =
+                                isText &&
+                                annotation.backgroundColor === undefined
+                                  ? "#ffffff"
+                                  : isText
+                                  ? annotation.backgroundColor
+                                  : undefined;
+                              const isEditing =
+                                isText && editingTextId === annotation.id;
 
-                                      // auto-grow height
-                                      el.style.height = "auto";
-                                      el.style.height = `${el.scrollHeight}px`;
+                              return (
+                                <RndAnnotation
+                                  key={annotation.id}
+                                  annotation={annotation}
+                                  selected={
+                                    annotation.id === selectedAnnotationId
+                                  }
+                                  onSelect={() =>
+                                    setSelectedAnnotationId(annotation.id)
+                                  }
+                                  onPositionChange={updateAnnotationPosition}
+                                  onResize={updateAnnotationSize}
+                                  onRemove={removeAnnotation}
+                                  onMouseDownCapture={(event) => {
+                                    event.stopPropagation();
+                                    setSelectedAnnotationId(annotation.id);
+                                    if (isText) {
+                                      setEditingTextId(annotation.id);
+                                    } else {
+                                      setEditingTextId(null);
+                                    }
+                                  }}
+                                >
+                                  {isText ? (
+                                    isEditing ? (
+                                    <textarea
+                                        rows={1}
+                                        className="
+                                          annotation-input
+                                          min-w-[24px]
+                                          w-full
+                                          resize-none
+                                          outline-none
+                                          p-0
+                                          leading-none
+                                          overflow-hidden
+                                        "
+                                        value={annotation.text}
+                                        style={{
+                                          fontSize: displayFontSize,
+                                          lineHeight: `${displayFontSize + 2}px`,
+                                          whiteSpace: "pre-wrap",
+                                          fontFamily: getFontStyle(
+                                            annotation.fontName
+                                          ).cssFamily,
+                                          fontWeight: getFontStyle(
+                                            annotation.fontName
+                                          ).fontWeight,
+                                          fontStyle: getFontStyle(
+                                            annotation.fontName
+                                          ).fontStyle,
+                                          color:
+                                            annotation.textColor || "#000000",
+                                          backgroundColor:
+                                            resolvedBg || "transparent",
+                                        }}
+                                        autoFocus
+                                        onBlur={() => setEditingTextId(null)}
+                                        onChange={(event) => {
+                                          const el = event.target;
+                                          el.style.height = "auto";
+                                          el.style.height = `${el.scrollHeight}px`;
 
-                                      const newText = el.value;
-                                      const dims = measureTextDimensions(
-                                        newText,
-                                        annotation.fontSize,
-                                        annotation.fontName
-                                      );
+                                          const newText = el.value;
+                                          const dims = measureTextDimensions(
+                                            newText,
+                                            displayFontSize,
+                                            annotation.fontName
+                                          );
 
-                                      updateAnnotation(annotation.id, {
-                                        text: newText,
-                                        width: dims.width, // allow shrinking
-                                        height: dims.height, // keep annotation height tight to content
-                                      });
-                                    }}
-                                  />
-                                ) : (
-                                  <img
-                                    src={annotation.dataUrl}
-                                    alt={annotation.type}
-                                    className="h-full w-full rounded object-contain"
-                                  />
-                                )}
-                              </RndAnnotation>
-                            ))}
+                                          updateAnnotation(annotation.id, {
+                                            text: newText,
+                                            width: dims.width,
+                                            height: dims.height,
+                                          });
+                                        }}
+                                      />
+                                    ) : (
+                                      <div
+                                        className="h-full w-full cursor-text select-none"
+                                        style={{
+                                          fontSize: displayFontSize,
+                                          lineHeight: `${displayFontSize + 2}px`,
+                                          whiteSpace: "pre-wrap",
+                                          fontFamily: getFontStyle(
+                                            annotation.fontName
+                                          ).cssFamily,
+                                          fontWeight: getFontStyle(
+                                            annotation.fontName
+                                          ).fontWeight,
+                                          fontStyle: getFontStyle(
+                                            annotation.fontName
+                                          ).fontStyle,
+                                          color:
+                                            annotation.textColor || "#000000",
+                                          backgroundColor:
+                                            resolvedBg || "transparent",
+                                        }}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setSelectedAnnotationId(
+                                            annotation.id
+                                          );
+                                          setEditingTextId(annotation.id);
+                                        }}
+                                      >
+                                        {annotation.text}
+                                      </div>
+                                    )
+                                  ) : (
+                                    <img
+                                      src={annotation.dataUrl}
+                                      alt={annotation.type}
+                                      className="h-full w-full rounded object-contain"
+                                    />
+                                  )}
+                                </RndAnnotation>
+                              );
+                            })}
                         </div>
                       </div>
                     </div>
@@ -1108,7 +1343,8 @@ interface RndAnnotationProps {
   ) => void;
   onRemove: (id: string) => void;
   children: React.ReactNode;
-  onMouseDownCapture?: (event: React.MouseEvent) => void;
+  // Rnd uses native MouseEvent; keep this narrow to avoid React MouseEvent mismatch
+  onMouseDownCapture?: (event: { stopPropagation: () => void }) => void;
 }
 
 function RndAnnotation({
@@ -1146,6 +1382,7 @@ function RndAnnotation({
       minHeight={minHeight}
       enableResizing={enableResizing}
       dragHandleClassName="annotation-drag-handle"
+      onMouseDown={onMouseDownCapture}
       onDragStop={(_, data) => onPositionChange(annotation.id, data.x, data.y)}
       onResizeStop={(_, _dir, ref, _delta, position) => {
         onResize(
@@ -1157,12 +1394,12 @@ function RndAnnotation({
         );
       }}
       className={cn(
-        "absolute annotation-drag-handle rounded-md border p-0 shadow-sm group",
+        "absolute annotation-drag-handle rounded-md border p-0 shadow-none group",
         selected ? "border-primary ring-2 ring-primary/60" : "border-muted",
         annotation.type === "text" ? "bg-transparent" : "bg-white/0"
       )}
     >
-      <div className="relative h-fit w-full">
+      <div className="relative h-fit w-full p-0">
         <div className="annotation-drag-handle absolute -left-1 -top-8 cursor-pointer flex items-center gap-1 rounded-full border border-muted/50 bg-white/80 px-2 py-0.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100">
           <Move className="h-3 w-3" />
           Drag
