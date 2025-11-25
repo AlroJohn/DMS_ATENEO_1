@@ -266,9 +266,7 @@ export function EditablePdfViewer({
   onExit,
   onSaved,
 }: EditablePdfViewerProps) {
-  const getFontStyleForAnnotation = (
-    annotation?: Partial<TextAnnotation>
-  ) => {
+  const getFontStyleForAnnotation = (annotation?: Partial<TextAnnotation>) => {
     return resolveFontVariant({
       fontFamily: annotation?.fontFamily,
       fontName: annotation?.fontName,
@@ -462,7 +460,9 @@ export function EditablePdfViewer({
     if (!context) {
       return { width: 80, height: safeFontSize + 4 };
     }
-    const weight = fontStyleInfo.fontWeight ? `${fontStyleInfo.fontWeight} ` : "";
+    const weight = fontStyleInfo.fontWeight
+      ? `${fontStyleInfo.fontWeight} `
+      : "";
     const style = fontStyleInfo.fontStyle ? `${fontStyleInfo.fontStyle} ` : "";
     context.font = `${style}${weight}${safeFontSize}px ${fontStyleInfo.cssFamily}`;
 
@@ -991,10 +991,7 @@ export function EditablePdfViewer({
                   value={annotation.listStyle ?? "none"}
                   onChange={(event) => {
                     const nextList = event.target.value as ListStyleType;
-                    const formatted = formatListText(
-                      annotation.text,
-                      nextList
-                    );
+                    const formatted = formatListText(annotation.text, nextList);
                     const style = getFontStyleForAnnotation(annotation);
                     const dims = measureTextDimensions(
                       formatted,
@@ -1144,11 +1141,7 @@ export function EditablePdfViewer({
                   annotation.listStyle
                 );
                 const style = getFontStyleForAnnotation(annotation);
-                const dims = measureTextDimensions(
-                  formatted,
-                  nextSize,
-                  style
-                );
+                const dims = measureTextDimensions(formatted, nextSize, style);
                 updateAnnotation(annotation.id, {
                   fontSize: nextSize,
                   width: dims.width,
@@ -1359,8 +1352,9 @@ export function EditablePdfViewer({
                                   : undefined;
                               const isEditing =
                                 isText && editingTextId === annotation.id;
-                              const resolvedFont =
-                                getFontStyleForAnnotation(annotation);
+                              const resolvedFont = isText
+                                ? getFontStyleForAnnotation(annotation)
+                                : null;
                               const formattedText = isText
                                 ? formatListText(
                                     annotation.text,
@@ -1410,9 +1404,9 @@ export function EditablePdfViewer({
                                           fontSize: displayFontSize,
                                           lineHeight: `${displayFontSize}px`,
                                           whiteSpace: "pre-wrap",
-                                          fontFamily: resolvedFont.cssFamily,
-                                          fontWeight: resolvedFont.fontWeight,
-                                          fontStyle: resolvedFont.fontStyle,
+                                          fontFamily: resolvedFont?.cssFamily,
+                                          fontWeight: resolvedFont?.fontWeight,
+                                          fontStyle: resolvedFont?.fontStyle,
                                           color:
                                             annotation.textColor || "#000000",
                                           backgroundColor:
@@ -1426,20 +1420,22 @@ export function EditablePdfViewer({
                                           el.style.height = `${el.scrollHeight}px`;
 
                                           const newText = el.value;
-                                          const dims = measureTextDimensions(
-                                            formatListText(
-                                              newText,
-                                              annotation.listStyle
-                                            ),
-                                            displayFontSize,
-                                            resolvedFont
-                                          );
+                                          if (resolvedFont) {
+                                            const dims = measureTextDimensions(
+                                              formatListText(
+                                                newText,
+                                                annotation.listStyle
+                                              ),
+                                              displayFontSize,
+                                              resolvedFont
+                                            );
 
-                                          updateAnnotation(annotation.id, {
-                                            text: newText,
-                                            width: dims.width,
-                                            height: dims.height,
-                                          });
+                                            updateAnnotation(annotation.id, {
+                                              text: newText,
+                                              width: dims.width,
+                                              height: dims.height,
+                                            });
+                                          }
                                         }}
                                       />
                                     ) : (
@@ -1449,9 +1445,9 @@ export function EditablePdfViewer({
                                           fontSize: displayFontSize,
                                           lineHeight: `${displayFontSize}px`,
                                           whiteSpace: "pre-wrap",
-                                          fontFamily: resolvedFont.cssFamily,
-                                          fontWeight: resolvedFont.fontWeight,
-                                          fontStyle: resolvedFont.fontStyle,
+                                          fontFamily: resolvedFont?.cssFamily,
+                                          fontWeight: resolvedFont?.fontWeight,
+                                          fontStyle: resolvedFont?.fontStyle,
                                           color:
                                             annotation.textColor || "#000000",
                                           backgroundColor:
