@@ -85,7 +85,7 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
       onOpenChange(open);
       if (!open) resetModal();
     }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
@@ -109,7 +109,8 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
                 </div>
                 <div className="flex items-center gap-2">
                   <Key className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-mono">{document.hash || "Hash will be generated"}</span>
+                  <span className="text-sm font-medium text-muted-foreground">Hash:</span>
+                  <span className="text-sm font-mono break-all bg-muted px-2 py-1 rounded-md">{document.hash || "Will be generated upon signing"}</span>
                 </div>
                 {document.blockchainStatus && (
                   <div className="flex items-center gap-2">
@@ -143,21 +144,19 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
               </div>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">What happens when you sign:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Document hash is generated and recorded on blockchain</li>
-                <li>• Immutable timestamp is created</li>
-                <li>• Digital certificate is generated</li>
-                <li>• Document becomes tamper-evident</li>
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-1">
+                <Shield className="h-4 w-4" /> What happens when you sign:
+              </h4>
+              <ul className="text-sm space-y-1">
+                <li><span className="font-medium">Document Integrity:</span> A unique cryptographic hash of your document is generated and securely recorded on the blockchain.</li>
+                <li><span className="font-medium">Immutable Timestamp:</span> An unalterable timestamp is created, proving the existence of your document at a specific point in time.</li>
+                <li><span className="font-medium">Digital Certificate:</span> A digital certificate linking your signature to the document and its blockchain record is generated.</li>
+                <li><span className="font-medium">Tamper Evidence:</span> The document becomes tamper-evident; any future modifications will invalidate its blockchain record.</li>
               </ul>
             </div>
 
-            {error && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
+
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -167,8 +166,17 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
                 onClick={handleSign}
                 disabled={!signature.trim() || isLoading}
               >
-                <Shield className="h-4 w-4 mr-2" />
-                {isLoading ? 'Processing...' : 'Sign Document'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Sign Document
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -181,25 +189,25 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold mb-2">Processing Blockchain Signature</h3>
-              <p className="text-muted-foreground">Please wait while we process your signature...</p>
+              <h3 className="text-xl font-semibold mb-2">Processing Your Blockchain Signature</h3>
+              <p className="text-muted-foreground">This may take a few moments. Please keep this window open.</p>
             </div>
 
             <div className="space-y-2">
-              <Progress value={signingProgress} className="w-full" />
+              <Progress value={signingProgress} className="w-full h-2" />
               <p className="text-sm text-muted-foreground">
-                {signingProgress < 20 ? "Generating document hash..." :
-                 signingProgress < 40 ? "Connecting to DocOnChain API..." :
-                 signingProgress < 60 ? "Creating blockchain transaction..." :
-                 signingProgress < 80 ? "Waiting for confirmation..." :
-                 "Signature complete!"}
+                {signingProgress <= 20 && "Step 1/4: Generating document hash..."}
+                {signingProgress > 20 && signingProgress <= 40 && "Step 2/4: Connecting to DocOnChain API..."}
+                {signingProgress > 40 && signingProgress <= 60 && "Step 3/4: Creating blockchain transaction..."}
+                {signingProgress > 60 && signingProgress <= 80 && "Step 4/4: Waiting for network confirmation..."}
+                {signingProgress > 80 && "Finalizing signature details..."}
               </p>
             </div>
 
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <AlertCircle className="h-4 w-4 inline mr-1" />
-                Do not close this window while processing
+            <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg flex items-center gap-2 text-orange-800">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-medium">
+                Important: Do not close this window or navigate away while your signature is being processed.
               </p>
             </div>
           </div>
@@ -211,48 +219,50 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
               <div className="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold text-green-900">Document Successfully Signed!</h3>
-              <p className="text-muted-foreground">Your document has been signed and recorded on the blockchain</p>
+              <h3 className="text-xl font-semibold text-green-900">Document Successfully Signed & Recorded!</h3>
+              <p className="text-muted-foreground">Your document has been securely signed and permanently recorded on the blockchain.</p>
             </div>
 
             <Card>
               <CardHeader>
                 <CardTitle>Signature Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                     <label className="text-sm font-medium text-muted-foreground">Transaction Hash</label>
-                    <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                    <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all mt-1">
                       {data.transactionHash}
                     </p>
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <label className="text-sm font-medium text-muted-foreground">Project UUID</label>
-                    <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                    <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all mt-1">
                       {data.projectUuid}
                     </p>
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <div className="mt-1">
                       <Badge variant={data.status === 'signed' ? 'default' : 'secondary'}>
-                        {data.status}
+                        {data.status.toUpperCase()}
                       </Badge>
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Timestamp</label>
-                    <p className="font-medium">{new Date().toLocaleString()}</p>
+                    <p className="font-medium mt-1">{new Date().toLocaleString()}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-sm text-green-800">
-                <CheckCircle className="h-4 w-4 inline mr-1" />
-                Your document is now tamper-evident and verifiable on the blockchain
+            <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-medium">
+                Your document is now tamper-evident and its authenticity is verifiable on the blockchain.
               </p>
             </div>
 
@@ -261,8 +271,9 @@ export function BlockchainSigningModal({ open, onOpenChange, document, onSigned 
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (!data.redirectUrl) return;
-                    window.open(data.redirectUrl, '_blank', 'noopener,noreferrer');
+                    if (data.redirectUrl) {
+                      window.open(data.redirectUrl, '_blank', 'noopener,noreferrer');
+                    }
                   }}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
