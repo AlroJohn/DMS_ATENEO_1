@@ -693,7 +693,7 @@ export function DataTableToolbar<TData>({
       />
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Bulk Delete</DialogTitle>
             <DialogDescription>
@@ -718,7 +718,7 @@ export function DataTableToolbar<TData>({
       </Dialog>
       {/* Bulk Archive Confirmation Dialog */}
       <Dialog open={isBulkArchiveOpen} onOpenChange={setIsBulkArchiveOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Bulk Archive</DialogTitle>
             <DialogDescription>
@@ -742,7 +742,7 @@ export function DataTableToolbar<TData>({
       </Dialog>
       {/* Bulk Complete Confirmation Dialog */}
       <Dialog open={isBulkCompleteOpen} onOpenChange={setIsBulkCompleteOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Bulk Complete</DialogTitle>
             <DialogDescription>
@@ -766,7 +766,7 @@ export function DataTableToolbar<TData>({
       </Dialog>
       {/* Bulk Cancel Confirmation Dialog */}
       <Dialog open={isBulkCancelOpen} onOpenChange={setIsBulkCancelOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Bulk Cancel</DialogTitle>
             <DialogDescription>
