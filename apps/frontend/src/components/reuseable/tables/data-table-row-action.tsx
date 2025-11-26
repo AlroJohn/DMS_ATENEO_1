@@ -520,7 +520,7 @@ export function  DataTableRowActions<TData>({
             </>
           )}
 
-          {/* Shared View Actions - Show only the 7 requested actions for shared documents */}
+          {/* Shared View Actions - Show only the allowed actions for shared documents */}
           {viewType === 'shared' && (
             <>
               {/* Copy Code - always available in shared view */}
@@ -558,6 +558,14 @@ export function  DataTableRowActions<TData>({
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Documents
               </DropdownMenuItem>
+
+              {/* Complete - for users with document receive permissions */}
+              {showComplete && (
+                <DropdownMenuItem onClick={(e) => handleAction(e, handleComplete)}>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Complete
+                </DropdownMenuItem>
+              )}
 
               {/* Release - always available in shared view */}
               <DropdownMenuItem onClick={(e) => handleAction(e, handleRelease)}>

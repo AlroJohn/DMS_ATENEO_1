@@ -42,6 +42,7 @@ interface DataTableProps<TData, TValue> {
   excludedFilters?: string[];
   onSelectionChange?: (selectedRows: TData[]) => void;
   showUploadButton?: boolean; // Prop to control upload button visibility
+  viewType?: 'document' | 'owned' | 'shared'; // View type to control which actions are shown in toolbar
   initialState?: {
     columnVisibility?: Record<string, boolean>;
   };
@@ -55,6 +56,7 @@ export function DataTable<TData, TValue>({
   excludedFilters = [],
   onSelectionChange,
   showUploadButton = false, // Default to false to maintain existing behavior
+  viewType = 'document', // Default to document view
   initialState = {},
   isLoading = false, // Default to false to maintain existing behavior
 }: DataTableProps<TData, TValue>) {
@@ -104,6 +106,7 @@ export function DataTable<TData, TValue>({
         table={table}
         excludedFilters={excludedFilters}
         showUploadButton={showUploadButton}
+        viewType={viewType}
       />
       <div className="rounded-md border bg-card overflow-x-auto">
         <Table>
@@ -143,6 +146,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={row.getIsSelected() ? "bg-muted/50" : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

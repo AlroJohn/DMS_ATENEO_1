@@ -121,6 +121,7 @@ export default function SharedDocumentsPage() {
         columns={columns}
         data={sanitizedDocuments}
         selection={true}
+        viewType="shared"
         isLoading={isLoading}
       />
     </div>

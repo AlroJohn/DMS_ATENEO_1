@@ -95,6 +95,7 @@ export default function DocumentsPage() {
         selection={true}
         excludedFilters={["documentId"]}
         showUploadButton={true}
+        viewType="document"
         initialState={{
           columnVisibility: {
             security: false,

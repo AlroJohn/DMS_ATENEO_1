@@ -61,17 +61,16 @@ export const createOwnedDocumentColumns = (
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
-          className="translate-y-[2px]"
+          className="translate-y-[2px] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
         />
       ),
       cell: ({ row }) => {
-        console.log("Row object in select column cell:", row);
         return (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Select row"
-            className="translate-y-[2px]"
+            className="translate-y-[2px] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
           />
         );
       },
