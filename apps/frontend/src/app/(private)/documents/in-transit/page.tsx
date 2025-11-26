@@ -9,7 +9,8 @@ import {
   useIncomingDocuments,
   useOutgoingDocuments,
 } from "@/hooks/use-documents-in-transit";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSocket } from "@/components/providers/providers";
 
 export default function InTransitDocumentsPage() {
@@ -85,39 +86,39 @@ export default function InTransitDocumentsPage() {
         </TabsList>
 
         <TabsContent value="incoming" className="mt-4">
-          {isLoadingIncoming ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          {incomingError && (
+            <div className="mb-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>Error loading incoming documents: {incomingError}</AlertDescription>
+              </Alert>
             </div>
-          ) : incomingError ? (
-            <div className="flex items-center justify-center h-64 text-destructive">
-              <p>Error loading incoming documents: {incomingError}</p>
-            </div>
-          ) : (
-            <DataTable
-              columns={incomingColumns}
-              data={incomingDocuments}
-              selection={true}
-            />
           )}
+          <DataTable
+            columns={incomingColumns}
+            data={incomingDocuments}
+            selection={true}
+            isLoading={isLoadingIncoming}
+          />
         </TabsContent>
 
         <TabsContent value="outgoing" className="mt-4">
-          {isLoadingOutgoing ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          {outgoingError && (
+            <div className="mb-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>Error loading outgoing documents: {outgoingError}</AlertDescription>
+              </Alert>
             </div>
-          ) : outgoingError ? (
-            <div className="flex items-center justify-center h-64 text-destructive">
-              <p>Error loading outgoing documents: {outgoingError}</p>
-            </div>
-          ) : (
-            <DataTable
-              columns={outgoingColumns}
-              data={outgoingDocuments}
-              selection={true}
-            />
           )}
+          <DataTable
+            columns={outgoingColumns}
+            data={outgoingDocuments}
+            selection={true}
+            isLoading={isLoadingOutgoing}
+          />
         </TabsContent>
       </Tabs>
     </div>

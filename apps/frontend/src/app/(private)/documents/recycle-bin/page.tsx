@@ -385,58 +385,6 @@ export default function RecycleBinPage() {
     return null;
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Loading recycle bin documents...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    // Handle authentication errors specifically
-    const isAuthError =
-      error.includes("authentication") || error.includes("login");
-
-    return (
-      <div className="flex h-full flex-col bg-background p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription className="flex items-center justify-between">
-            <span>{error}</span>
-            <div className="flex gap-2 ml-4">
-              {isAuthError ? (
-                <Button
-                  size="sm"
-                  onClick={() => router.push("/login")}
-                  className="h-8"
-                >
-                  <LogIn className="h-3 w-3 mr-1" />
-                  Login
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={refetch}
-                  className="h-8"
-                >
-                  Try again
-                </Button>
-              )}
-            </div>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   // Empty state when no documents in recycle bin
   if (!isLoading && documents.length === 0) {
     return (
@@ -661,17 +609,57 @@ export default function RecycleBinPage() {
 
       {/* Data Table */}
       <div className="flex-1">
-                <DataTable<RecycleBinDocument, unknown>
-                  columns={dynamicColumns}
-                  data={documents}
-                  selection={true}
-                  onSelectionChange={setSelectedDocuments}
-                  initialState={{
-                    columnVisibility: {
-                      dates: false,
-                    },
-                  }}
-                />      </div>
+        {error && (
+          <div className="mb-4">
+            {/* Handle authentication errors specifically */}
+            {error.includes("authentication") || error.includes("login") ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription className="flex items-center justify-between">
+                  <span>{error}</span>
+                  <Button
+                    size="sm"
+                    onClick={() => router.push("/login")}
+                    className="h-8 ml-4"
+                  >
+                    <LogIn className="h-3 w-3 mr-1" />
+                    Login
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription className="flex items-center justify-between">
+                  <span>{error}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={refetch}
+                    className="h-8 ml-4"
+                  >
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+        <DataTable<RecycleBinDocument, unknown>
+          columns={dynamicColumns}
+          data={documents}
+          selection={true}
+          onSelectionChange={setSelectedDocuments}
+          initialState={{
+            columnVisibility: {
+              dates: false,
+            },
+          }}
+          isLoading={isLoading}
+        />
+      </div>
     </div>
   );
 }

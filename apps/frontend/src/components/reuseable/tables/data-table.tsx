@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { Loader2 } from "lucide-react";
 import { DataTablePagination, DataTableToolbar } from "./data-table-toolbar";
 
 const formatText = (text: string): string => {
@@ -44,6 +45,7 @@ interface DataTableProps<TData, TValue> {
   initialState?: {
     columnVisibility?: Record<string, boolean>;
   };
+  isLoading?: boolean; // Prop to handle loading state within the table
 }
 
 export function DataTable<TData, TValue>({
@@ -54,6 +56,7 @@ export function DataTable<TData, TValue>({
   onSelectionChange,
   showUploadButton = false, // Default to false to maintain existing behavior
   initialState = {},
+  isLoading = false, // Default to false to maintain existing behavior
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -123,7 +126,19 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              // Show loading state when data is being fetched
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
