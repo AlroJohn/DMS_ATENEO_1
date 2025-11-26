@@ -294,17 +294,13 @@ export class SharedDocumentService {
             },
             include: {
               checked_out_by_account: {
-                include: {
+                select: {
+                  email: true,
                   user: {
                     select: {
                       user_id: true,
                       first_name: true,
                       last_name: true,
-                    }
-                  },
-                  account: {
-                    select: {
-                      email: true
                     }
                   }
                 }
@@ -314,13 +310,13 @@ export class SharedDocumentService {
 
           if (checkedOutFile) {
             const checkoutUser = checkedOutFile.checked_out_by_account?.user;
-            const checkoutAccount = checkedOutFile.checked_out_by_account?.account;
+            const checkoutEmail = checkedOutFile.checked_out_by_account?.email;
 
             if (checkoutUser) {
               checkedOutBy = {
                 id: checkoutUser.user_id, // Use the user ID for comparison in frontend
                 name: `${checkoutUser.first_name} ${checkoutUser.last_name}`,
-                email: checkoutAccount?.email
+                email: checkoutEmail
               };
             }
             checkedOutAt = checkedOutFile.checked_out_at;

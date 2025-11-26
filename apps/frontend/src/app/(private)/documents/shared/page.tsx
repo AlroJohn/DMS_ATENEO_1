@@ -9,18 +9,21 @@ import { useSocket } from "@/components/providers/providers";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function SharedDocumentsPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const {
     documents = [],
-    isLoading,
+    isLoading: documentsLoading,
     error,
     refetch,
   } = useSharedDocuments(1, 100);
   const { socket } = useSocket();
-  const { user } = useAuth();
+
+  // Only fetch documents if user is authenticated
+  const isLoading = authLoading || documentsLoading;
 
   // Listen for real-time document updates
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !user) return;
 
     const handleDocumentAdded = () => {
       refetch();
@@ -77,7 +80,7 @@ export default function SharedDocumentsPage() {
       socket.off("checkin", handleCheckin);
       socket.off("checkoutOverridden", handleCheckoutOverridden);
     };
-  }, [socket, refetch]);
+  }, [socket, refetch, user]);
 
   const sanitizedDocuments = useMemo(() => {
     return documents.map((doc) => {

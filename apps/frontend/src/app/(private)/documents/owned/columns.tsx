@@ -319,7 +319,7 @@ export const createOwnedDocumentColumns = (
     },
     {
       id: "actions",
-      cell: ({ row }) => <DataTableRowActions row={row} />,
+      cell: ({ row }) => <DataTableRowActions row={row} viewType="owned" />,
       enableSorting: false,
       enableHiding: false,
     },

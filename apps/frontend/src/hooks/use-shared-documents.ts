@@ -62,9 +62,17 @@ export function useSharedDocuments(page: number = 1, limit: number = 10): UseSha
       })
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({
-          error: { message: 'Failed to fetch shared documents' }
-        }))
+        let err;
+        try {
+          err = await response.json();
+        } catch (parseError) {
+          // If JSON parsing fails, create a default error object
+          err = {
+            error: {
+              message: `HTTP Error: ${response.status} - ${response.statusText}`
+            }
+          };
+        }
         throw new Error(err.error?.message || 'Failed to fetch shared documents')
       }
 

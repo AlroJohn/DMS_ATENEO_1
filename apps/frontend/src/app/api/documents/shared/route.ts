@@ -19,15 +19,30 @@ export async function GET(request: NextRequest) {
       credentials: 'include',  // Include cookies in the request
     });
 
-    const result = await backendResponse.json();
+    // Safely parse the response body regardless of success or error
+    let result;
+    try {
+      result = await backendResponse.json();
+    } catch (parseError) {
+      // If JSON parsing fails, create a default error response
+      return Response.json(
+        {
+          error: {
+            message: 'Failed to fetch shared documents - invalid response format',
+            details: 'Response was not valid JSON'
+          }
+        },
+        { status: backendResponse.status || 500 }
+      );
+    }
 
     if (!backendResponse.ok) {
       return Response.json(
-        { 
-          error: { 
-            message: result.error || 'Failed to fetch shared documents',
-            details: result.error 
-          } 
+        {
+          error: {
+            message: result.error?.message || result.message || 'Failed to fetch shared documents',
+            details: result.error || result
+          }
         },
         { status: backendResponse.status }
       );
@@ -40,7 +55,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching shared documents:', error);
-    
+
     return Response.json(
       { error: { message: 'Internal server error' } },
       { status: 500 }

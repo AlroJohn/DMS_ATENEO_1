@@ -317,7 +317,7 @@ export const columns: ColumnDef<SharedDocument>[] = [
     id: "actions",
     cell: ({ row }) => (
       <div className="flex justify-center">
-        <DataTableRowActions row={row} />
+        <DataTableRowActions row={row} viewType="shared" />
       </div>
     ),
     enableSorting: false,
