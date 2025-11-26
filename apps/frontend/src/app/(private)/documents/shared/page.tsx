@@ -4,7 +4,8 @@ import { useEffect, useMemo } from "react";
 import { DataTable } from "@/components/reuseable/tables/data-table";
 import { columns } from "./columns";
 import { useSharedDocuments } from "@/hooks/use-shared-documents";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSocket } from "@/components/providers/providers";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -107,21 +108,21 @@ export default function SharedDocumentsPage() {
   return (
     <div className="flex h-full flex-col gap-4 bg-background">
       <div className="flex flex-col gap-1.5"></div>
-      {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      {error && (
+        <div className="mb-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>Error loading shared documents: {error}</AlertDescription>
+          </Alert>
         </div>
-      ) : error ? (
-        <div className="flex items-center justify-center h-64 text-destructive">
-          <p>Error loading shared documents: {error}</p>
-        </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={sanitizedDocuments}
-          selection={true}
-        />
       )}
+      <DataTable
+        columns={columns}
+        data={sanitizedDocuments}
+        selection={true}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

@@ -59,7 +59,7 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
                 variant="ghost"
                 size="sm"
                 onClick={markAllAsRead}
-                className="text-xs -mt-1"
+                className="text-xs mt-5"
               >
                 Mark all read
               </Button>
@@ -111,52 +111,52 @@ export function NotificationSheet({ open, onOpenChange }: NotificationSheetProps
 
                       {/* Content */}
                       <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-tight truncate">
-                              {notification.title}
-                            </p>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {notification.documentName && (
-                                <span className="font-medium truncate block">{notification.documentName}</span>
-                              )}
-                              {notification.documentCode && (
-                                <span className="inline-block mt-1 px-2 py-0.5 bg-muted rounded text-xs font-mono">
-                                  {notification.documentCode}
-                                </span>
-                              )}
-                              {!notification.documentName && !notification.documentCode && (
-                                <span className="line-clamp-2">{notification.message}</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-2">
-                              {new Date(notification.timestamp).toLocaleString()}
-                            </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold leading-tight truncate">
+                            {notification.title}
+                          </p>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {notification.documentName && (
+                              <span className="font-medium truncate block">{notification.documentName}</span>
+                            )}
+                            {notification.documentCode && (
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-muted rounded text-xs font-mono">
+                                {notification.documentCode}
+                              </span>
+                            )}
+                            {!notification.documentName && !notification.documentCode && (
+                              <span className="line-clamp-2">{notification.message}</span>
+                            )}
                           </div>
-                          {!notification.read && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => markAsRead(notification.id)}
-                              aria-label="Mark as read"
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                          )}
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {new Date(notification.timestamp).toLocaleString()}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Close button */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mt-1"
-                        onClick={() => deleteNotification(notification.id)}
-                        aria-label="Dismiss"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      {/* Action buttons - Mark as read and Close */}
+                      <div className="flex gap-1">
+                        {!notification.read && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => markAsRead(notification.id)}
+                            aria-label="Mark as read"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => deleteNotification(notification.id)}
+                          aria-label="Dismiss"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))

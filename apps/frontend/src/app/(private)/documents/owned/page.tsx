@@ -66,43 +66,30 @@ export default function OwnedDocumentsPage() {
     };
   }, [socket, refetch]);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading documents...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full flex-col bg-background p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {error}
-            <button
-              onClick={refetch}
-              className="ml-2 underline hover:no-underline"
-            >
-              Try again
-            </button>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full flex-col bg-background">
+      {error && (
+        <div className="p-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {error}
+              <button
+                onClick={refetch}
+                className="ml-2 underline hover:no-underline"
+              >
+                Try again
+              </button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
       <DataTable
         columns={ownedColumns}
         data={documents}
         selection={true}
+        isLoading={isLoading}
       />
     </div>
   );
