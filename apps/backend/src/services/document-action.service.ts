@@ -7,6 +7,14 @@ export class DocumentActionService {
     return prisma.documentAction.findMany();
   }
 
+  async getActiveDocumentActions() {
+    return prisma.documentAction.findMany({
+      where: {
+        status: true,
+      },
+    });
+  }
+
   async getDocumentActionById(id: string) {
     return prisma.documentAction.findUnique({
       where: { document_action_id: id },

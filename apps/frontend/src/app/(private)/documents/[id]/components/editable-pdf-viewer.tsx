@@ -39,7 +39,7 @@ if (typeof window !== "undefined") {
   GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
 }
 
-type AnnotationType = "text" | "image" | "signature";
+type AnnotationType = "text" | "image";
 
 interface BaseAnnotation {
   id: string;
@@ -65,7 +65,7 @@ interface TextAnnotation extends BaseAnnotation {
 }
 
 interface ImageAnnotation extends BaseAnnotation {
-  type: "image" | "signature";
+  type: "image";
   dataUrl: string;
   mimeType: string;
 }
@@ -435,9 +435,9 @@ export function EditablePdfViewer({
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   // const [activePage, setActivePage] = useState(1); // This line was moved and removed
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingAssetType, setPendingAssetType] = useState<
-    "image" | "signature" | null
-  >(null);
+  const [pendingAssetType, setPendingAssetType] = useState<"image" | null>(
+    null
+  );
   const assetInputRef = useRef<HTMLInputElement>(null);
 
   const getSafeFontSize = (value?: number | null) => {
@@ -511,7 +511,7 @@ export function EditablePdfViewer({
     setSelectedAnnotationId(newAnnotation.id);
     setEditingTextId(newAnnotation.id);
   };
-  const handleRequestAsset = (type: "image" | "signature") => {
+  const handleRequestAsset = (type: "image") => {
     setPendingAssetType(type);
     assetInputRef.current?.click();
   };
@@ -616,7 +616,7 @@ export function EditablePdfViewer({
       return;
     }
     if (annotations.length === 0) {
-      toast.error("Add at least one text, image, or signature before saving.");
+      toast.error("Add at least one text or image before saving.");
       return;
     }
 
@@ -715,10 +715,7 @@ export function EditablePdfViewer({
             maxWidth: rectWidth,
             lineHeight: fontSize,
           });
-        } else if (
-          annotation.type === "image" ||
-          annotation.type === "signature"
-        ) {
+        } else if (annotation.type === "image") {
           const bytes = dataUrlToUint8Array(annotation.dataUrl);
           const image = annotation.mimeType.includes("png")
             ? await pdfDoc.embedPng(bytes)
@@ -1247,36 +1244,6 @@ export function EditablePdfViewer({
                 </SelectContent>
               </Select>
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddText}
-                  disabled={annotationToolsDisabled}
-                >
-                  <Type className="mr-1 h-4 w-4" />
-                  Text
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRequestAsset("image")}
-                  disabled={annotationToolsDisabled}
-                >
-                  <ImageIcon className="mr-1 h-4 w-4" />
-                  Image
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRequestAsset("signature")}
-                  disabled={annotationToolsDisabled}
-                >
-                  <PenLine className="mr-1 h-4 w-4" />
-                  Signature
-                </Button>
-              </div>
-
               <div className="flex flex-1 justify-end gap-2">
                 <Button
                   variant="outline"
@@ -1295,8 +1262,8 @@ export function EditablePdfViewer({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Place text, images, or signatures on the canvas. Saving will
-              upload a new version and keep previous files intact.
+              Place text or images on the canvas. Saving will upload a new
+              version and keep previous files intact.
             </p>
 
             <div className="flex flex-col gap-4 lg:flex-row">
@@ -1496,6 +1463,29 @@ export function EditablePdfViewer({
                           annotations.length === 1 ? "" : "s"
                         } added`}
                   </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddText}
+                    disabled={annotationToolsDisabled}
+                  >
+                    <Type className="mr-1 h-4 w-4" />
+                    Add Text
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRequestAsset("image")}
+                    disabled={annotationToolsDisabled}
+                  >
+                    <ImageIcon className="mr-1 h-4 w-4" />
+                    Add Image
+                  </Button>
                 </div>
 
                 {renderAnnotationControls()}

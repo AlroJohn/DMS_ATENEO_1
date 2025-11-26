@@ -13,7 +13,7 @@ export class DocumentReleaseService {
   async releaseDocument(
     documentId: string,
     departmentId: string,
-    requestAction: string,
+    requestAction: string | string[], // Can be a single action or an array of actions
     remarks: string | undefined,
     userId: string
   ) {
@@ -173,7 +173,7 @@ export class DocumentReleaseService {
         fromDepartmentId: releasingUser?.department_id || null,
         toDepartmentId: departmentId,
         userId,
-        requestAction,
+        requestAction: Array.isArray(requestAction) ? requestAction.join(', ') : requestAction, // Join multiple actions into a string
         remarks
       });
 

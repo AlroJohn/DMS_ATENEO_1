@@ -31,14 +31,15 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { title } from "process";
+import { TeamSwitcher } from "./team-switcher";
 
 // Navigation and team data
 const data = {
   teams: [
     {
-      name: "Acme Inc",
+      name: "Quanby Solutions Inc.",
       logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      plan: "",
     },
     {
       name: "Acme Corp.",
@@ -360,17 +361,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <img 
-            src="/image/qby.png" 
-            alt="Quanby Solution Logo" 
-            className="h-8 w-8 rounded-lg object-contain"
-          />
-          <div className="flex flex-col gap-0.5 flex-1">
-            <span className="font-semibold text-sm">Quanby Solution, Inc.</span>
-            <span className="text-xs text-muted-foreground">Enterprise</span>
-          </div>
-        </div>
+        <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />

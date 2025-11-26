@@ -17,7 +17,7 @@ export class DocumentReleaseController {
   releaseDocument = asyncHandler(async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
     const { id } = req.params;
-    const { departmentId, requestAction, remarks } = req.body;
+    const { departmentId, requestAction, requestActions, remarks } = req.body;
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,16 +26,22 @@ export class DocumentReleaseController {
       return sendError(res, 'Invalid document ID or department ID format', 400);
     }
 
-    const missingFields = validateRequiredFields(req.body, ['departmentId', 'requestAction']);
-    if (missingFields.length > 0) {
-      return sendError(res, `Missing required fields: ${missingFields.join(', ')}`, 400);
+    // Check if requestActions is provided (array), otherwise fallback to requestAction (single)
+    const actions = requestActions ? requestActions : requestAction;
+    if (!actions) {
+      return sendError(res, 'Either requestAction or requestActions is required', 400);
+    }
+
+    // If requestActions is an array, validate it's not empty
+    if (Array.isArray(actions) && actions.length === 0) {
+      return sendError(res, 'requestActions cannot be empty', 400);
     }
 
     const result = await this.documentReleaseService.releaseDocument(
-      id, 
-      departmentId, 
-      requestAction, 
-      remarks, 
+      id,
+      departmentId,
+      actions, // Could be string or string[]
+      remarks,
       authReq.user.id
     );
 

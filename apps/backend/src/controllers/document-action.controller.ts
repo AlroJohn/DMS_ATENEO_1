@@ -11,7 +11,16 @@ export class DocumentActionController {
 
   async getAllDocumentActions(req: Request, res: Response) {
     try {
-      const documentActions = await this.documentActionService.getAllDocumentActions();
+      // Check if there's a query parameter to get only active actions
+      const { activeOnly } = req.query;
+      let documentActions;
+
+      if (activeOnly === 'true') {
+        documentActions = await this.documentActionService.getActiveDocumentActions();
+      } else {
+        documentActions = await this.documentActionService.getAllDocumentActions();
+      }
+
       res.json({ success: true, data: documentActions });
     } catch (error) {
       console.error('Error fetching document actions:', error);

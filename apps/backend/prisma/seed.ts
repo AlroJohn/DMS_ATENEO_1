@@ -44,6 +44,23 @@ async function main() {
           }
         });
 
+        // Delete UserInvitations that reference roles created by super admin first
+        await tx.userInvitation.deleteMany({
+          where: {
+            role_id: {
+              in: (await tx.role.findMany({
+                where: {
+                  OR: [
+                    { created_by: existingSuperAdmin.account_id },
+                    { updated_by: existingSuperAdmin.account_id }
+                  ]
+                },
+                select: { role_id: true }
+              })).map(r => r.role_id)
+            }
+          }
+        });
+
         // Delete roles created or updated by the super admin
         await tx.role.deleteMany({
           where: {
@@ -453,6 +470,39 @@ async function main() {
           console.log('✅ Assigned document_type_read permission to View-Only role');
         } else {
           console.log('✅ document_type_read permission already assigned to View-Only role');
+        }
+      }
+
+      // Create some document actions for testing
+      console.log('\n📝 Creating sample document actions...');
+      const documentActions = [
+        { action_name: 'For Approval', description: 'Document requires approval', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Signature', description: 'Document requires signature', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Review', description: 'Document requires review', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Information', description: 'Document for information purposes', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Action', description: 'Document requires action', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Comment', description: 'Document requires comments', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Endorsement', description: 'Document requires endorsement', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Filing', description: 'Document requires filing', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Release', description: 'Document for release', sender_tag: 'FROM', recipient_tag: 'TO' },
+        { action_name: 'For Follow-up', description: 'Document requires follow-up', sender_tag: 'FROM', recipient_tag: 'TO' }
+      ];
+
+      for (const action of documentActions) {
+        const existingAction = await tx.documentAction.findFirst({
+          where: { action_name: action.action_name }
+        });
+
+        if (!existingAction) {
+          await tx.documentAction.create({
+            data: {
+              ...action,
+              status: true // Set as active by default
+            }
+          });
+          console.log(`✅ Created document action: ${action.action_name}`);
+        } else {
+          console.log(`✅ Document action already exists: ${action.action_name}`);
         }
       }
 
