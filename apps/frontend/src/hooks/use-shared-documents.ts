@@ -62,7 +62,9 @@ export function useSharedDocuments(page: number = 1, limit: number = 10): UseSha
       })
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
+        const err = await response.json().catch(() => ({
+          error: { message: 'Failed to fetch shared documents' }
+        }))
         throw new Error(err.error?.message || 'Failed to fetch shared documents')
       }
 
@@ -72,11 +74,13 @@ export function useSharedDocuments(page: number = 1, limit: number = 10): UseSha
         setDocuments(data.data || [])
         setPagination(data.meta?.pagination || null)
       } else {
-        throw new Error(data.error?.message || 'Failed to fetch shared documents')
+        throw new Error(data.error?.message || data.message || 'Failed to fetch shared documents')
       }
     } catch (err: any) {
       console.error('Error fetching shared documents:', err)
-      setError(err.message || 'An error occurred while fetching shared documents')
+      // Handle case where err is an object but not an Error instance
+      const errorMessage = err?.message || (typeof err === 'string' ? err : 'An error occurred while fetching shared documents')
+      setError(errorMessage)
       setDocuments([])
       setPagination(null)
     } finally {
