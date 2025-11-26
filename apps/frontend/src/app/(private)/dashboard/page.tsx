@@ -330,29 +330,7 @@ export default function Page() {
         <RecentDocuments />
       </div>
 
-      {/* System Alerts & Notifications */}
-      <div className="grid grid-cols-1 gap-4">
-        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              Alerts & Notifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              <li className="flex justify-between">
-                <span className="text-orange-900 dark:text-orange-100">2 Contracts expiring in 7 days</span>
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">View</Button>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-orange-900 dark:text-orange-100">1 Document pending review</span>
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">Review</Button>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      {/* System Alerts & Notifications removed */}
 
       {/* Bottom Section */}
       <div className="flex flex-row gap-4 w-full">
