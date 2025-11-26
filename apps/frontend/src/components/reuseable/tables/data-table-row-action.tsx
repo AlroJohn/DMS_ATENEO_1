@@ -65,7 +65,7 @@ interface DataTableRowActionsProps<TData> {
   viewType?: 'document' | 'owned' | 'shared'; // 'document' for general document view, 'owned' for owned documents view, 'shared' for shared documents view
 }
 
-export function DataTableRowActions<TData>({
+export function  DataTableRowActions<TData>({
   row,
   viewType = 'document', // Default to 'document' view
 }: DataTableRowActionsProps<TData>) {
@@ -257,15 +257,19 @@ export function DataTableRowActions<TData>({
 
   // Permission checks
   const canViewDetails = canViewDocuments(currentUser);
-  const canEditDetails = canEditDocumentDetails(currentUser, document);
-  const canEditDoc = canEditDocument(currentUser, document);
   const canViewDoc = canViewDocument(currentUser);
-  const canSignDoc = canSignDocument(currentUser, document);
-  const canRelease = canReleaseDocument(currentUser, document);
-  const canComplete = canCompleteDocument(currentUser, document);
-  const canCancel = canCancelDocument(currentUser, document);
-  const canArchive = canArchiveDocument(currentUser, document);
-  const canDelete = canDeleteDocument(currentUser, document);
+
+  // For owned view, documents should be treated as owned by the user
+  const effectiveDocument = viewType === 'owned' ? { ...document, isOwned: true } : document;
+
+  const canEditDetails = canEditDocumentDetails(currentUser, effectiveDocument);
+  const canEditDoc = canEditDocument(currentUser, effectiveDocument);
+  const canSignDoc = canSignDocument(currentUser, effectiveDocument);
+  const canRelease = canReleaseDocument(currentUser, effectiveDocument);
+  const canComplete = canCompleteDocument(currentUser, effectiveDocument);
+  const canCancel = canCancelDocument(currentUser, effectiveDocument);
+  const canArchive = canArchiveDocument(currentUser, effectiveDocument);
+  const canDelete = canDeleteDocument(currentUser, effectiveDocument);
 
   // Status-based checks
   const isDispatch = document.status?.toLowerCase().includes('dispatch');
@@ -516,123 +520,50 @@ export function DataTableRowActions<TData>({
             </>
           )}
 
-          {/* Shared View Actions */}
+          {/* Shared View Actions - Show only the 7 requested actions for shared documents */}
           {viewType === 'shared' && (
             <>
-              {/* Copy Code - available for all users in shared view */}
+              {/* Copy Code - always available in shared view */}
               <DropdownMenuItem onClick={(e) => handleAction(e, handleCopyCode)}>
                 <Copy className="mr-2 h-4 w-4" />
                 Copy Code
               </DropdownMenuItem>
 
-              {/* View Details - for users with document read permissions */}
-              {canViewDocuments(currentUser) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleView)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </DropdownMenuItem>
-              )}
+              {/* View Details - always available in shared view */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleView)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
 
-              {/* View Documents - for users with document read permissions */}
-              {canViewDocument(currentUser) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleViewDocument)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Documents
-                </DropdownMenuItem>
-              )}
+              {/* View Documents - always available in shared view */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleViewDocument)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Documents
+              </DropdownMenuItem>
 
-              {/* Sign Document - for users with signing permissions, considering shared document access */}
-              {(currentUser && (hasAnyPermission(currentUser, ['document_sign', 'document_write', 'document_edit']))) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleSign)}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  Sign Document
-                </DropdownMenuItem>
-              )}
+              {/* Sign Document - always available in shared view */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleSign)}>
+                <Shield className="mr-2 h-4 w-4" />
+                Sign Document
+              </DropdownMenuItem>
 
-              {/* Edit Details - for users with edit permissions, considering shared document access */}
-              {(currentUser && (hasAnyPermission(currentUser, ['document_edit', 'document_write']))) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleEdit)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Details
-                </DropdownMenuItem>
-              )}
+              {/* Edit Details - always available in shared view */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleEdit)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Details
+              </DropdownMenuItem>
 
-              {/* Edit Documents - for users with edit permissions, considering shared document access */}
-              {(currentUser && (hasAnyPermission(currentUser, ['document_edit', 'document_write']))) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleCheckoutFile)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Documents
-                </DropdownMenuItem>
-              )}
+              {/* Edit Documents - always available in shared view */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleCheckoutFile)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Documents
+              </DropdownMenuItem>
 
-              {(currentUser && (hasAnyPermission(currentUser, ['document_sign', 'document_edit', 'document_write']))) && <DropdownMenuSeparator />}
-
-              {/* Release - for users with transfer permissions, considering shared document access */}
-              {(currentUser && (hasAnyPermission(currentUser, ['document_transfer_initiate', 'document_transfer_approve']))) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleRelease)}>
-                  <Send className="mr-2 h-4 w-4" />
-                  Release
-                </DropdownMenuItem>
-              )}
-
-              {/* Complete - for users with document receive permissions and dispatch status */}
-              {canCompleteDocument(currentUser, document) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleComplete)}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Complete
-                </DropdownMenuItem>
-              )}
-
-              {/* Cancel - for users with transfer reject permissions and in-transit status */}
-              {canCancelDocument(currentUser, document) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleCancel)}>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Cancel
-                </DropdownMenuItem>
-              )}
-
-              {(currentUser && (hasAnyPermission(currentUser, ['document_transfer_initiate', 'document_transfer_reject', 'document_write']) || canCompleteDocument(currentUser, document) || canCancelDocument(currentUser, document))) && <DropdownMenuSeparator />}
-
-              {/* Archive - for users with archive permissions, considering shared document access */}
-              {(currentUser && (hasPermission(currentUser, 'document_archive') || canArchiveDocument(currentUser, document))) && (
-                <DropdownMenuItem onClick={(e) => handleAction(e, handleArchive)}>
-                  <Archive className="mr-2 h-4 w-4" />
-                  Archive
-                </DropdownMenuItem>
-              )}
-
-              {/* Delete - for users with delete permissions, considering shared document access */}
-              {(currentUser && (hasPermission(currentUser, 'document_delete') || canDeleteDocument(currentUser, document))) && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      onSelect={(e) => e.preventDefault()}
-                      disabled={isLoading}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Are you sure you want to delete this document?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the
-                        document and remove its data from our servers.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} disabled={isLoading}>
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
+              {/* Release - always available in shared view */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleRelease)}>
+                <Send className="mr-2 h-4 w-4" />
+                Release
+              </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
