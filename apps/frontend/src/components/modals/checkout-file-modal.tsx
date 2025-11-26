@@ -30,6 +30,8 @@ interface DocumentFile {
     accountId: string;
     name: string;
   };
+  parentFileId?: string; // Links file to its parent for branching
+  versionGroupId?: string; // UUID to group related versions of the same document
 }
 
 interface CheckoutFileModalProps {
@@ -167,13 +169,15 @@ export function CheckoutFileModal({
     }
   }
 
-  const handleUploadFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const selectedFile = event.target.files?.[0];
-    if (!selectedFile || !documentId) return;
+    if (!selectedFile || !documentId || !selectedFileId) return;
 
     // Validate file type - only allow PDF files
-    if (!selectedFile.type.includes('pdf')) {
-      toast.error('Only PDF files are allowed for versioning.');
+    if (!selectedFile.type.includes("pdf")) {
+      toast.error("Only PDF files are allowed for versioning.");
       return;
     }
 
@@ -182,26 +186,33 @@ export function CheckoutFileModal({
 
     try {
       const formData = new FormData();
-      formData.append('files', selectedFile);
+      formData.append("files", selectedFile);
+      if (selectedFileId) {
+        formData.append("parentFileId", selectedFileId); // Associate with the selected file for branching
+      }
 
-      // Upload the file to the document (the backend will automatically handle versioning)
+      // Upload the file to the document as a new branch/version
       const response = await fetch(`/api/documents/${documentId}/files`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
-        credentials: 'include'
+        credentials: "include",
       });
 
       setUploadProgress(80);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(errorData.error?.message || 'Failed to upload file');
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Upload failed" }));
+        throw new Error(errorData.error?.message || "Failed to upload file");
       }
 
       const result = await response.json();
 
       setUploadProgress(100);
-      toast.success(`New version of "${selectedFile.name}" uploaded successfully!`);
+      toast.success(
+        `New branch of "${selectedFile.name}" uploaded successfully!`
+      );
 
       // Refresh the file list
       if (open && documentId) {
@@ -214,12 +225,13 @@ export function CheckoutFileModal({
 
       // Reset file input
       if (event.target) {
-        event.target.value = '';
+        event.target.value = "";
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
-      toast.error('Upload failed', {
-        description: error?.message || 'An error occurred while uploading the file.',
+      console.error("Upload error:", error);
+      toast.error("Upload failed", {
+        description:
+          error?.message || "An error occurred while uploading the file.",
       });
     } finally {
       setIsUploading(false);
@@ -233,12 +245,12 @@ export function CheckoutFileModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Checkout a File</DialogTitle>
           <DialogDescription>
-            Select a file to check out for editing or upload a new version of an existing file. This will lock the file for
-            other users.
+            Select a file to check out for editing or upload a new version of an
+            existing file. This will lock the file for other users.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-6">
@@ -248,6 +260,7 @@ export function CheckoutFileModal({
             </div>
           ) : (
             <>
+              {/* Group files by parent-child relationships for branching */}
               <ScrollArea className="h-48 pr-4">
                 <RadioGroup
                   value={selectedFileId ?? ""}
@@ -255,63 +268,184 @@ export function CheckoutFileModal({
                 >
                   <div className="space-y-2">
                     {files.length > 0 ? (
-                      files.map((file) => {
-                        const isLocked = file.checkout;
-                        const isLockedByMe =
-                          isLocked &&
-                          file.checkedOutBy?.accountId === user?.accountId;
-                        const isLockedByOther = isLocked && !isLockedByMe;
+                      (() => {
+                        // Group files by their parent/branch structure
+                        // Root files are files without a parentFileId or files where parentFileId doesn't exist in the list
+                        const rootFiles = files.filter(
+                          (file) =>
+                            !file.parentFileId ||
+                            !files.some((f) => f.id === file.parentFileId)
+                        );
+
+                        // Child files are those that have a parentFileId that exists in the list
+                        const childFilesMap = new Map<string, DocumentFile[]>();
+                        files.forEach((file) => {
+                          if (
+                            file.parentFileId &&
+                            files.some((f) => f.id === file.parentFileId)
+                          ) {
+                            if (!childFilesMap.has(file.parentFileId)) {
+                              childFilesMap.set(file.parentFileId, []);
+                            }
+                            childFilesMap.get(file.parentFileId)!.push(file);
+                          }
+                        });
 
                         return (
-                          <Label
-                            key={file.id}
-                            htmlFor={file.id}
-                            className={`flex items-center justify-between rounded-md border p-3 ${
-                              isLockedByOther
-                                ? "cursor-not-allowed bg-muted/50 text-muted-foreground"
-                                : "cursor-pointer hover:bg-accent"
-                            }`}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <RadioGroupItem value={file.id} id={file.id} />
-                              <div className="flex flex-col">
-                                <span>{file.name}</span>
-                                {file.version && (
-                                  <span className="text-xs text-muted-foreground">
-                                    Version {file.version}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {isLockedByMe ? (
-                              <Badge
-                                variant="default"
-                                className="flex items-center gap-1 bg-green-600"
-                              >
-                                <UserCheck className="h-3 w-3" />
-                                Locked by you
-                              </Badge>
-                            ) : isLockedByOther ? (
-                              <Badge
-                                variant="destructive"
-                                className="flex items-center gap-1"
-                              >
-                                <Lock className="h-3 w-3" />
-                                Locked by{" "}
-                                {file.checkedOutBy?.name || "another user"}
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="secondary"
-                                className="flex items-center gap-1"
-                              >
-                                <Unlock className="h-3 w-3" />
-                                Available
-                              </Badge>
-                            )}
-                          </Label>
+                          <>
+                            {rootFiles.map((file) => {
+                              const isLocked = file.checkout;
+                              const isLockedByMe =
+                                isLocked &&
+                                file.checkedOutBy?.accountId ===
+                                  user?.accountId;
+                              const isLockedByOther = isLocked && !isLockedByMe;
+                              const childFiles =
+                                childFilesMap.get(file.id) || [];
+
+                              return (
+                                <div key={file.id} className="space-y-1">
+                                  <Label
+                                    htmlFor={file.id}
+                                    className={`flex items-center justify-between rounded-md border p-3 ${
+                                      isLockedByOther
+                                        ? "cursor-not-allowed bg-muted/50 text-muted-foreground"
+                                        : "cursor-pointer hover:bg-accent"
+                                    }`}
+                                  >
+                                    <div className="flex items-center space-x-3">
+                                      <RadioGroupItem
+                                        value={file.id}
+                                        id={file.id}
+                                      />
+                                      <div className="flex flex-col">
+                                        <span className="flex items-center gap-2">
+                                          {file.name}
+                                          {childFiles.length > 0 && (
+                                            <Badge
+                                              variant="secondary"
+                                              className="text-xs"
+                                            >
+                                              {childFiles.length} branch
+                                              {childFiles.length > 1
+                                                ? "es"
+                                                : ""}
+                                            </Badge>
+                                          )}
+                                        </span>
+                                        {file.version && (
+                                          <span className="text-xs text-muted-foreground">
+                                            Version {file.version}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {isLockedByMe ? (
+                                      <Badge
+                                        variant="default"
+                                        className="flex items-center gap-1 bg-green-600"
+                                      >
+                                        <UserCheck className="h-3 w-3" />
+                                        Locked by you
+                                      </Badge>
+                                    ) : isLockedByOther ? (
+                                      <Badge
+                                        variant="destructive"
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Lock className="h-3 w-3" />
+                                        Locked by{" "}
+                                        {file.checkedOutBy?.name ||
+                                          "another user"}
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="secondary"
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Unlock className="h-3 w-3" />
+                                        Available
+                                      </Badge>
+                                    )}
+                                  </Label>
+
+                                  {/* Display child files (branches) underneath parent */}
+                                  {childFiles.length > 0 && (
+                                    <div className="ml-8 pl-2 border-l-2 border-muted-foreground/30 space-y-2 py-1">
+                                      {childFiles.map((childFile) => {
+                                        const childIsLocked =
+                                          childFile.checkout;
+                                        const childIsLockedByMe =
+                                          childIsLocked &&
+                                          childFile.checkedOutBy?.accountId ===
+                                            user?.accountId;
+                                        const childIsLockedByOther =
+                                          childIsLocked && !childIsLockedByMe;
+
+                                        return (
+                                          <Label
+                                            key={childFile.id}
+                                            htmlFor={childFile.id}
+                                            className={`flex items-center justify-between rounded-md border p-2 ml-4 ${
+                                              childIsLockedByOther
+                                                ? "cursor-not-allowed bg-muted/30 text-muted-foreground"
+                                                : "cursor-pointer hover:bg-accent"
+                                            }`}
+                                          >
+                                            <div className="flex items-center space-x-3">
+                                              <RadioGroupItem
+                                                value={childFile.id}
+                                                id={childFile.id}
+                                              />
+                                              <div className="flex flex-col">
+                                                <span className="text-sm">
+                                                  {childFile.name}
+                                                </span>
+                                                {childFile.version && (
+                                                  <span className="text-xs text-muted-foreground">
+                                                    Version {childFile.version}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {childIsLockedByMe ? (
+                                              <Badge
+                                                variant="default"
+                                                className="flex items-center gap-1 bg-green-600"
+                                              >
+                                                <UserCheck className="h-3 w-3" />
+                                                Locked by you
+                                              </Badge>
+                                            ) : childIsLockedByOther ? (
+                                              <Badge
+                                                variant="destructive"
+                                                className="flex items-center gap-1"
+                                              >
+                                                <Lock className="h-3 w-3" />
+                                                Locked by{" "}
+                                                {childFile.checkedOutBy?.name ||
+                                                  "another user"}
+                                              </Badge>
+                                            ) : (
+                                              <Badge
+                                                variant="secondary"
+                                                className="flex items-center gap-1"
+                                              >
+                                                <Unlock className="h-3 w-3" />
+                                                Available
+                                              </Badge>
+                                            )}
+                                          </Label>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </>
                         );
-                      })
+                      })()
                     ) : (
                       <p className="text-center text-muted-foreground">
                         No files found in this document.
@@ -327,7 +461,8 @@ export function CheckoutFileModal({
                   Upload New Version
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Upload a new version of an existing document. The system will automatically increment the version number.
+                  Select a file to upload a new branch/version. The system will
+                  create a new branch linked to the selected file.
                 </p>
 
                 <Button
@@ -335,7 +470,7 @@ export function CheckoutFileModal({
                   variant="outline"
                   className="w-full"
                   onClick={handleVersionUploadClick}
-                  disabled={isUploading}
+                  disabled={isUploading || !selectedFileId}
                 >
                   {isUploading ? (
                     <>
@@ -345,7 +480,9 @@ export function CheckoutFileModal({
                   ) : (
                     <>
                       <Upload className="mr-2 h-4 w-4" />
-                      Upload PDF Version
+                      {selectedFileId
+                        ? "Upload Branch/Version"
+                        : "Select a file first"}
                     </>
                   )}
                 </Button>

@@ -95,6 +95,7 @@ model Document {
   files                     DocumentFile[]              @relation("DocumentFiles")
   // account                   Account?                    @relation(fields: [accountAccount_id], references: [account_id])
   // accountAccount_id         String?                     @db.Uuid
+  documentFlag              DocumentFlag?
 }
 
 model DocumentAdditionalDetails {
@@ -171,6 +172,7 @@ model DocumentFile {
   checkout            Boolean           @default(false)
   checked_out_by      UserCheckout[]
   file_id             String            @id @default(uuid()) @db.Uuid
+  flag                DocumentFlag?     @relation(fields: [documentFlagFlag_id], references: [flag_id])
   document_id         String            @db.Uuid
   original_name       String
   stored_name         String
@@ -183,12 +185,30 @@ model DocumentFile {
   uploaded_by         String            @db.Uuid
   uploaded_at         DateTime          @default(now())
   updated_at          DateTime          @default(now()) @updatedAt
+  version_group_id    String?           @db.Uuid // UUID to group related versions of the same document
   Document            Document          @relation("DocumentFiles", fields: [document_id], references: [document_id], onDelete: Cascade)
   uploaded_by_account Account           @relation("AccountUploadedFiles", fields: [uploaded_by], references: [account_id])
   DocumentMetadata    DocumentMetadata?
+  documentFlagFlag_id String?           @db.Uuid
 
   @@index([document_id])
   @@index([uploaded_by])
+  @@index([version_group_id])
+}
+
+model DocumentFlag {
+  flag_id             String             @id @default(uuid()) @db.Uuid
+  document_id         String             @unique @db.Uuid
+  is_confidential     Boolean            @default(false)
+  is_archived         Boolean            @default(false)
+  is_verified         Boolean            @default(false)
+  verification_status VerificationStatus @default(pending)
+  flagged_by          String?            @db.Uuid
+  flagged_at          DateTime?
+  created_at          DateTime           @default(now())
+  updated_at          DateTime           @default(now()) @updatedAt
+  Document            Document           @relation(fields: [document_id], references: [document_id], onDelete: Cascade)
+  documentFiles       DocumentFile[]
 }
 
 model UserCheckout {
