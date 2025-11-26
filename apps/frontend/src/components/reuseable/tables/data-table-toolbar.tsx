@@ -20,6 +20,7 @@ import {
   Archive,
   Trash2,
   CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { Table, Column } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -396,7 +397,7 @@ interface DataTableToolbarProps<TData> {
   table: Table<TData>;
   excludedFilters?: string[]; // New prop
   showUploadButton?: boolean; // Prop to control upload button visibility
-  viewType?: 'document' | 'owned' | 'shared'; // View type to control which actions are shown
+  viewType?: 'document' | 'owned' | 'shared' | 'outgoing'; // View type to control which actions are shown
 }
 
 export function DataTableToolbar<TData>({
@@ -415,6 +416,7 @@ export function DataTableToolbar<TData>({
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
   const [isBulkArchiveOpen, setIsBulkArchiveOpen] = React.useState(false);
   const [isBulkCompleteOpen, setIsBulkCompleteOpen] = React.useState(false);
+  const [isBulkCancelOpen, setIsBulkCancelOpen] = React.useState(false);
 
   // Get selected rows
   const selectedRows = table.getFilteredSelectedRowModel().rows;
@@ -472,6 +474,60 @@ export function DataTableToolbar<TData>({
       toast.error('Failed to move documents to recycle bin');
     } finally {
       setIsBulkDeleteOpen(false);
+    }
+  };
+
+  const handleBulkCancel = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Extract IDs safely, only processing rows that have an 'id' property
+      const documentIds = selectedRows
+        .map((row) => {
+          const item = row.original as Record<string, unknown>;
+          return typeof item.id === 'string' ? item.id : undefined;
+        })
+        .filter((id): id is string => id !== undefined && id.length > 0);
+
+      if (documentIds.length === 0) {
+        toast.error("No valid document IDs found for cancellation");
+        return;
+      }
+
+      // Process each document individually using the same endpoint as single cancel
+      const results = await Promise.allSettled(
+        documentIds.map(id =>
+          fetch(`/api/documents/${id}/cancel`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          })
+        )
+      );
+
+      // Count successful operations
+      const successfulCount = results.filter(result =>
+        result.status === 'fulfilled' && result.value.ok
+      ).length;
+
+      if (successfulCount > 0) {
+        toast.success(`${successfulCount} document(s) cancelled successfully.`);
+      }
+
+      // Handle any failures
+      const failedCount = results.length - successfulCount;
+      if (failedCount > 0) {
+        toast.error(`${failedCount} document(s) failed to cancel.`);
+      }
+
+      table.toggleAllRowsSelected(false); // Clear selection
+    } catch (error: any) {
+      console.error('Error cancelling documents:', error);
+      toast.error('Failed to cancel documents');
+    } finally {
+      setIsBulkCancelOpen(false);
     }
   };
 
@@ -708,6 +764,31 @@ export function DataTableToolbar<TData>({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Bulk Cancel Confirmation Dialog */}
+      <Dialog open={isBulkCancelOpen} onOpenChange={setIsBulkCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Cancel</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel {selectedRows.length} document(s)?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkCancelOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkCancel}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-1 items-center gap-2">
           {/* Only show the search bar and filters directly if we're not implementing the modal approach */}
@@ -770,8 +851,29 @@ export function DataTableToolbar<TData>({
                   Complete
                 </Button>
               )}
+              {/* Show Cancel and Archive in outgoing view */}
+              {viewType === 'outgoing' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBulkCancelOpen(true)}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBulkArchiveOpen(true)}
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive
+                  </Button>
+                </>
+              )}
               {/* Show Archive and Delete in document and owned views */}
-              {viewType !== 'shared' && (
+              {(viewType === 'document' || viewType === 'owned') && (
                 <>
                   <Button
                     variant="outline"
