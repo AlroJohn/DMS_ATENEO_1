@@ -139,41 +139,41 @@ const data = {
         },
       ],
     },
-    {
-      title: "Workflows",
-      url: "/workflows",
-      icon: DraftingCompass,
-      items: [
-        {
-          title: "Workflow Builder",
-          url: "/workflows/builder",
-        },
-        {
-          title: "Templates",
-          url: "/workflows/templates",
-        },
-        {
-          title: "My Approvals",
-          url: "/approvals",
-        },
-        {
-          title: "Pending Signatures",
-          url: "/workflows/pending-signatures",
-        },
-        {
-          title: "Performance",
-          url: "/workflows/performance",
-        },
-        {
-          title: "Email Settings",
-          url: "/workflows/email-settings",
-        },
-        {
-          title: "Notification Settings",
-          url: "/workflows/notifications-settings",
-        },
-      ],
-    },
+    // {
+    //   title: "Workflows",
+    //   url: "/workflows",
+    //   icon: DraftingCompass,
+    //   items: [
+    //     {
+    //       title: "Workflow Builder",
+    //       url: "/workflows/builder",
+    //     },
+    //     {
+    //       title: "Templates",
+    //       url: "/workflows/templates",
+    //     },
+    //     {
+    //       title: "My Approvals",
+    //       url: "/approvals",
+    //     },
+    //     {
+    //       title: "Pending Signatures",
+    //       url: "/workflows/pending-signatures",
+    //     },
+    //     {
+    //       title: "Performance",
+    //       url: "/workflows/performance",
+    //     },
+    //     {
+    //       title: "Email Settings",
+    //       url: "/workflows/email-settings",
+    //     },
+    //     {
+    //       title: "Notification Settings",
+    //       url: "/workflows/notifications-settings",
+    //     },
+    //   ],
+    // },
     {
       title: "Notifications",
       url: "/notifications",

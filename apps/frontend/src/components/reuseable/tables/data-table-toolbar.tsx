@@ -17,6 +17,9 @@ import {
   ChevronsRight,
   Plus,
   Filter,
+  Archive,
+  Trash2,
+  CheckCircle,
 } from "lucide-react";
 import { Table, Column } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -54,6 +57,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { CreateDocumentModal } from "@/components/modals/create-document-modal";
 import { UploadDocumentModal } from "@/app/(private)/documents/[id]/components/upload-document-modal";
 import { DocumentFiltersModal } from "@/components/modals/document-filters-modal";
@@ -384,12 +396,14 @@ interface DataTableToolbarProps<TData> {
   table: Table<TData>;
   excludedFilters?: string[]; // New prop
   showUploadButton?: boolean; // Prop to control upload button visibility
+  viewType?: 'document' | 'owned' | 'shared'; // View type to control which actions are shown
 }
 
 export function DataTableToolbar<TData>({
   table,
   excludedFilters = [],
   showUploadButton = false, // Default to false to maintain existing behavior
+  viewType = 'document', // Default to document view
 }: DataTableToolbarProps<TData>) {
   const router = useRouter();
   const isFiltered = table.getState().columnFilters.length > 0;
@@ -398,6 +412,176 @@ export function DataTableToolbar<TData>({
   const [isUploadModalOpen, setUploadModalOpen] = React.useState(false);
   const [isFiltersModalOpen, setFiltersModalOpen] = React.useState(false);
   const [selectedDocuments, setSelectedDocuments] = React.useState<any[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
+  const [isBulkArchiveOpen, setIsBulkArchiveOpen] = React.useState(false);
+  const [isBulkCompleteOpen, setIsBulkCompleteOpen] = React.useState(false);
+
+  // Get selected rows
+  const selectedRows = table.getFilteredSelectedRowModel().rows;
+  const hasSelection = selectedRows.length > 0;
+
+  // Action handlers
+  const handleBulkDelete = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Extract IDs safely, only processing rows that have an 'id' property
+      const documentIds = selectedRows
+        .map((row) => {
+          const item = row.original as Record<string, unknown>;
+          return typeof item.id === 'string' ? item.id : undefined;
+        })
+        .filter((id): id is string => id !== undefined && id.length > 0);
+
+      if (documentIds.length === 0) {
+        toast.error("No valid document IDs found for deletion");
+        return;
+      }
+
+      // Process each document individually using the same endpoint as single delete
+      const results = await Promise.allSettled(
+        documentIds.map(id =>
+          fetch(`/api/documents/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          })
+        )
+      );
+
+      // Count successful operations
+      const successfulCount = results.filter(result =>
+        result.status === 'fulfilled' && result.value.ok
+      ).length;
+
+      if (successfulCount > 0) {
+        toast.success(`${successfulCount} document(s) moved to recycle bin successfully.`);
+      }
+
+      // Handle any failures
+      const failedCount = results.length - successfulCount;
+      if (failedCount > 0) {
+        toast.error(`${failedCount} document(s) failed to move to recycle bin.`);
+      }
+
+      table.toggleAllRowsSelected(false); // Clear selection
+    } catch (error: any) {
+      console.error('Error moving documents to recycle bin:', error);
+      toast.error('Failed to move documents to recycle bin');
+    } finally {
+      setIsBulkDeleteOpen(false);
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Extract IDs safely, only processing rows that have an 'id' property
+      const documentIds = selectedRows
+        .map((row) => {
+          const item = row.original as Record<string, unknown>;
+          return typeof item.id === 'string' ? item.id : undefined;
+        })
+        .filter((id): id is string => id !== undefined && id.length > 0);
+
+      if (documentIds.length === 0) {
+        toast.error("No valid document IDs found for archiving");
+        return;
+      }
+
+      // Process each document individually using the same endpoint as single archive
+      const results = await Promise.allSettled(
+        documentIds.map(id =>
+          fetch(`/api/archive/${id}/archive`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          })
+        )
+      );
+
+      // Count successful operations
+      const successfulCount = results.filter(result =>
+        result.status === 'fulfilled' && result.value.ok
+      ).length;
+
+      if (successfulCount > 0) {
+        toast.success(`${successfulCount} document(s) archived successfully.`);
+      }
+
+      // Handle any failures
+      const failedCount = results.length - successfulCount;
+      if (failedCount > 0) {
+        toast.error(`${failedCount} document(s) failed to archive.`);
+      }
+
+      table.toggleAllRowsSelected(false); // Clear selection
+    } catch (error: any) {
+      console.error('Error archiving documents:', error);
+      toast.error('Failed to archive documents');
+    } finally {
+      setIsBulkArchiveOpen(false);
+    }
+  };
+
+  const handleBulkComplete = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Extract IDs safely, only processing rows that have an 'id' property
+      const documentIds = selectedRows
+        .map((row) => {
+          const item = row.original as Record<string, unknown>;
+          return typeof item.id === 'string' ? item.id : undefined;
+        })
+        .filter((id): id is string => id !== undefined && id.length > 0);
+
+      if (documentIds.length === 0) {
+        toast.error("No valid document IDs found for completion");
+        return;
+      }
+
+      // Process each document individually using the same endpoint as single complete
+      const results = await Promise.allSettled(
+        documentIds.map(id =>
+          fetch(`/api/documents/${id}/complete`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          })
+        )
+      );
+
+      // Count successful operations
+      const successfulCount = results.filter(result =>
+        result.status === 'fulfilled' && result.value.ok
+      ).length;
+
+      if (successfulCount > 0) {
+        toast.success(`${successfulCount} document(s) completed successfully.`);
+      }
+
+      // Handle any failures
+      const failedCount = results.length - successfulCount;
+      if (failedCount > 0) {
+        toast.error(`${failedCount} document(s) failed to complete.`);
+      }
+
+      table.toggleAllRowsSelected(false); // Clear selection
+    } catch (error: any) {
+      console.error('Error completing documents:', error);
+      toast.error('Failed to complete documents');
+    } finally {
+      setIsBulkCompleteOpen(false);
+    }
+  };
 
   // Check if specific columns exist before attempting to get them
   const allColumnIds = table.getAllColumns().map((column) => column.id);
@@ -451,6 +635,79 @@ export function DataTableToolbar<TData>({
         onClose={() => setBulkTransmitOpen(false)}
         documents={selectedDocuments}
       />
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Delete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedRows.length} document(s)? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Bulk Archive Confirmation Dialog */}
+      <Dialog open={isBulkArchiveOpen} onOpenChange={setIsBulkArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Archive</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to archive {selectedRows.length} document(s)?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkArchiveOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkArchive}
+            >
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Bulk Complete Confirmation Dialog */}
+      <Dialog open={isBulkCompleteOpen} onOpenChange={setIsBulkCompleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Complete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to complete {selectedRows.length} document(s)?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkCompleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkComplete}
+            >
+              Complete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-1 items-center gap-2">
           {/* Only show the search bar and filters directly if we're not implementing the modal approach */}
@@ -499,20 +756,54 @@ export function DataTableToolbar<TData>({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* <Button variant="outline" size="sm">
-            <FileText className="mr-2 h-4 w-4" />
-            Export
-          </Button> */}
+          {/* Bulk Actions - Only show when there are selected rows */}
+          {hasSelection && (
+            <div className="flex gap-2">
+              {/* Show Complete only in shared view */}
+              {viewType === 'shared' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkCompleteOpen(true)}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Complete
+                </Button>
+              )}
+              {/* Show Archive and Delete in document and owned views */}
+              {viewType !== 'shared' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBulkArchiveOpen(true)}
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBulkDeleteOpen(true)}
+                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
           <Button
             variant="default"
             size="sm"
             onClick={() => {
-              const selectedRows = table.getFilteredSelectedRowModel().rows;
               if (selectedRows.length === 0) {
                 toast.error("Please select documents to transmit");
                 return;
               }
               setSelectedDocuments(selectedRows.map((row) => row.original));
+              toast.info(`Preparing to transmit ${selectedRows.length} document${selectedRows.length !== 1 ? 's' : ''}`);
               setBulkTransmitOpen(true);
             }}
           >

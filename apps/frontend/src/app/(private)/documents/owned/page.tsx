@@ -89,6 +89,7 @@ export default function OwnedDocumentsPage() {
         columns={ownedColumns}
         data={documents}
         selection={true}
+        viewType="owned"
         isLoading={isLoading}
       />
     </div>
