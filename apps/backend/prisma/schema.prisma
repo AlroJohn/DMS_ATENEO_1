@@ -133,15 +133,17 @@ model DocumentType {
 }
 
 model DocumentAction {
-  document_action_id String   @id @default(uuid()) @db.Uuid
-  action_name        String
-  description        String?
-  sender_tag         String?
-  recipient_tag      String?
-  status             Boolean  @default(true)
-  action_date        DateTime @default(now())
-  created_at         DateTime @default(now())
-  updated_at         DateTime @default(now()) @updatedAt
+  document_action_id  String                @id @default(uuid()) @db.Uuid
+  action_name         String
+  description         String?
+  sender_tag          String?
+  recipient_tag       String?
+  status              Boolean               @default(true)
+  action_date         DateTime              @default(now())
+  created_at          DateTime              @default(now())
+  updated_at          DateTime              @default(now()) @updatedAt
+  required_permission PermissionDefinition? @relation(fields: [permission_id], references: [permission_id])
+  permission_id       String?               @db.Uuid
 }
 
 model DocumentMetadata {
@@ -279,6 +281,7 @@ model PermissionDefinition {
   permission_audit_logs PermissionAuditLog[]
   role_permissions      RolePermission[]
   user_permissions      UserPermission[]
+  documentActions       DocumentAction[]
 }
 
 model RolePermission {
@@ -607,6 +610,7 @@ enum Permission {
   document_upload
   document_download
   document_share
+  document_sign
   document_archive
   document_restore
   document_move
