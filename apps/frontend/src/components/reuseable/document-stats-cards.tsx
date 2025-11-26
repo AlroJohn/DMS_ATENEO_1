@@ -70,71 +70,11 @@ const statsConfig = [
   },
 ];
 
-export function DocumentStatsCards() {
-  const [stats, setStats] = useState<DocumentStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface DocumentStatsCardsProps {
+  stats: DocumentStats;
+}
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch("/api/dashboard/stats", {
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("API Error Response:", errorText);
-          throw new Error(`Failed to fetch document statistics: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log("Dashboard stats response:", data);
-        
-        if (data.success) {
-          setStats(data.data);
-        } else {
-          throw new Error(data.error || "Unknown error");
-        }
-      } catch (err: any) {
-        setError(err.message);
-        console.error("Error fetching document stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader className="pb-3">
-              <div className="h-4 w-20 bg-gray-200 rounded"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 w-16 bg-gray-200 rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-red-600">Error</CardTitle>
-          <CardDescription>{error || "Failed to load statistics"}</CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
+export function DocumentStatsCards({ stats }: DocumentStatsCardsProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
@@ -143,7 +83,7 @@ export function DocumentStatsCards() {
           const count = stats[config.key];
 
           return (
-            <Link key={config.key} href={config.url}>
+            <Link key={config.key} href={config.url} prefetch={false}>
               <Card className="transition-all hover:shadow-lg cursor-pointer">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-medium">
@@ -163,7 +103,7 @@ export function DocumentStatsCards() {
             </Link>
           );
         })}
-        
+
         {/* Total Summary Card */}
         <Card className="transition-all hover:shadow-lg cursor-pointer">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">

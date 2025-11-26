@@ -4,57 +4,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const recentDocuments = [
-  {
-    id: 1,
-    title: "Q3 Financial Report",
-    sender: {
-      name: "Olivia Martin",
-      initials: "OM",
-    },
-    date: "5 minutes ago",
-  },
-  {
-    id: 2,
-    title: "Project Alpha Proposal",
-    sender: {
-      name: "Jackson Lee",
-      initials: "JL",
-    },
-    date: "1 hour ago",
-  },
-  {
-    id: 3,
-    title: "Marketing Campaign Update",
-    sender: {
-      name: "Isabella Nguyen",
-      initials: "IN",
-    },
-    date: "2 hours ago",
-  },
-  {
-    id: 4,
-    title: "HR Policy Changes",
-    sender: {
-      name: "William Kim",
-      initials: "WK",
-    },
-    date: "3 hours ago",
-  },
-    {
-    id: 5,
-    title: "New Feature Spec",
-    sender: {
-      name: "Sofia Davis",
-      initials: "SD",
-    },
-    date: "5 hours ago",
-  },
-];
+interface RecentDocument {
+  id: string;
+  title: string;
+  sender: {
+    name: string;
+    initials: string;
+  };
+  timeAgo: string;  // This is required according to backend
+}
 
-export function RecentDocuments() {
+interface RecentDocumentsProps {
+  documents: RecentDocument[];
+}
+
+export function RecentDocuments({ documents }: RecentDocumentsProps) {
   return (
     <Card className="w-full">
       <CardHeader>
@@ -62,7 +28,7 @@ export function RecentDocuments() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {recentDocuments.map((doc) => (
+          {documents.map((doc) => (
             <div key={doc.id} className="flex items-center">
               <Avatar className="h-9 w-9">
                 <AvatarFallback>{doc.sender.initials}</AvatarFallback>
@@ -73,7 +39,7 @@ export function RecentDocuments() {
                   from {doc.sender.name}
                 </p>
               </div>
-              <div className="ml-auto font-medium text-sm text-muted-foreground">{doc.date}</div>
+              <div className="ml-auto font-medium text-sm text-muted-foreground">{doc.timeAgo}</div>
             </div>
           ))}
         </div>

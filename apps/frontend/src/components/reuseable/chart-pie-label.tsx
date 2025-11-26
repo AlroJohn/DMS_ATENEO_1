@@ -2,7 +2,6 @@
 
 import { TrendingUp } from "lucide-react";
 import { Pie, PieChart } from "recharts";
-import { useEffect, useState } from "react";
 
 import {
   Card,
@@ -20,6 +19,19 @@ import {
 } from "@/components/ui/chart";
 
 export const description = "A pie chart with a label";
+
+interface DocumentStats {
+  owned: number;
+  inTransit: number;
+  shared: number;
+  archive: number;
+  recycleBin: number;
+  total: number;
+}
+
+interface ChartPieLabelProps {
+  documentStats: DocumentStats;
+}
 
 const chartConfig = {
   count: {
@@ -47,58 +59,14 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ChartPieLabel() {
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch("/api/dashboard/stats", {
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch dashboard stats");
-        }
-
-        const result = await response.json();
-        if (result.success && result.data) {
-          const data = result.data;
-          const formattedData = [
-            { category: "owned", count: data.owned, fill: "var(--color-owned)" },
-            { category: "inTransit", count: data.inTransit, fill: "var(--color-inTransit)" },
-            { category: "shared", count: data.shared, fill: "var(--color-shared)" },
-            { category: "archive", count: data.archive, fill: "var(--color-archive)" },
-            { category: "recycleBin", count: data.recycleBin, fill: "var(--color-recycleBin)" },
-          ].filter(item => item.count > 0);
-          setChartData(formattedData);
-        }
-      } catch (error) {
-        console.error("Error fetching chart data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <Card className="flex flex-col w-full">
-        <CardHeader className="items-center text-center pb-0">
-          <CardTitle>Document Distribution</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1 pb-0">
-          <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-            Loading chart data...
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+export function ChartPieLabel({ documentStats }: ChartPieLabelProps) {
+  const chartData = [
+    { category: "owned", count: documentStats.owned, fill: "var(--color-owned)" },
+    { category: "inTransit", count: documentStats.inTransit, fill: "var(--color-inTransit)" },
+    { category: "shared", count: documentStats.shared, fill: "var(--color-shared)" },
+    { category: "archive", count: documentStats.archive, fill: "var(--color-archive)" },
+    { category: "recycleBin", count: documentStats.recycleBin, fill: "var(--color-recycleBin)" },
+  ].filter(item => item.count > 0);
 
   return (
     <Card className="flex flex-col w-full">
