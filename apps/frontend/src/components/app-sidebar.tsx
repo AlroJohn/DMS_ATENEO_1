@@ -93,10 +93,6 @@ const data = {
           title: "Recycle Bin",
           url: "/documents/recycle-bin",
         },
-        {
-          title: "Storage Analytics",
-          url: "/documents/storage-analytics",
-        },
       ],
     },
     {
@@ -127,17 +123,7 @@ const data = {
         },
       ],
     },
-    {
-      title: "Contracts",
-      url: "/contracts",
-      icon: FileText,
-      items: [
-        {
-          title: "All Contracts",
-          url: "/contracts",
-        },
-      ],
-    },
+    // Contracts section removed
     {
       title: "Search",
       url: "/search",
