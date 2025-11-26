@@ -481,6 +481,7 @@ enum DocStatus {
   completed
   canceled
   deleted
+  archive
   // checked_out
 }
 

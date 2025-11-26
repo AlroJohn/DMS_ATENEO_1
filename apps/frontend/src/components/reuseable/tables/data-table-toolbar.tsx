@@ -21,6 +21,7 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Table, Column } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -393,11 +394,12 @@ export function DataTablePagination<TData>({
 // DataTableToolbar Component
 // ============================================================================
 
+// Remove the duplicate interface - keep only the one with 'archive' type
 interface DataTableToolbarProps<TData> {
   table: Table<TData>;
   excludedFilters?: string[]; // New prop
   showUploadButton?: boolean; // Prop to control upload button visibility
-  viewType?: 'document' | 'owned' | 'shared' | 'outgoing'; // View type to control which actions are shown
+  viewType?: 'document' | 'owned' | 'shared' | 'outgoing' | 'archive'; // View type to control which actions are shown
 }
 
 export function DataTableToolbar<TData>({
@@ -417,6 +419,7 @@ export function DataTableToolbar<TData>({
   const [isBulkArchiveOpen, setIsBulkArchiveOpen] = React.useState(false);
   const [isBulkCompleteOpen, setIsBulkCompleteOpen] = React.useState(false);
   const [isBulkCancelOpen, setIsBulkCancelOpen] = React.useState(false);
+  const [isBulkRestoreOpen, setIsBulkRestoreOpen] = React.useState(false);
 
   // Get selected rows
   const selectedRows = table.getFilteredSelectedRowModel().rows;
@@ -639,6 +642,63 @@ export function DataTableToolbar<TData>({
     }
   };
 
+  const handleBulkRestore = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Extract IDs safely, only processing rows that have an 'id' property
+      const documentIds = selectedRows
+        .map((row) => {
+          const item = row.original as Record<string, unknown>;
+          // For archive view, we might have document_id instead of id
+          const id = typeof item.id === 'string' ? item.id :
+                    typeof item.document_id === 'string' ? item.document_id : undefined;
+          return id;
+        })
+        .filter((id): id is string => id !== undefined && id.length > 0);
+
+      if (documentIds.length === 0) {
+        toast.error("No valid document IDs found for restoration");
+        return;
+      }
+
+      // Process each document individually using the restore endpoint
+      const results = await Promise.allSettled(
+        documentIds.map(id =>
+          fetch(`/api/archive/${id}/restore`, {
+            method: 'POST', // Using POST for restore action
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          })
+        )
+      );
+
+      // Count successful operations
+      const successfulCount = results.filter(result =>
+        result.status === 'fulfilled' && result.value.ok
+      ).length;
+
+      if (successfulCount > 0) {
+        toast.success(`${successfulCount} document(s) restored successfully.`);
+      }
+
+      // Handle any failures
+      const failedCount = results.length - successfulCount;
+      if (failedCount > 0) {
+        toast.error(`${failedCount} document(s) failed to restore.`);
+      }
+
+      table.toggleAllRowsSelected(false); // Clear selection
+    } catch (error: any) {
+      console.error('Error restoring documents:', error);
+      toast.error('Failed to restore documents');
+    } finally {
+      setIsBulkRestoreOpen(false);
+    }
+  };
+
   // Check if specific columns exist before attempting to get them
   const allColumnIds = table.getAllColumns().map((column) => column.id);
   const documentColumn = allColumnIds.includes("document")
@@ -789,6 +849,30 @@ export function DataTableToolbar<TData>({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Bulk Restore Confirmation Dialog */}
+      <Dialog open={isBulkRestoreOpen} onOpenChange={setIsBulkRestoreOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Restore</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to restore {selectedRows.length} document(s) from archive?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkRestoreOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkRestore}
+            >
+              Restore
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-1 items-center gap-2">
           {/* Only show the search bar and filters directly if we're not implementing the modal approach */}
@@ -893,6 +977,17 @@ export function DataTableToolbar<TData>({
                     Delete
                   </Button>
                 </>
+              )}
+              {/* Show Restore in archive view */}
+              {viewType === 'archive' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkRestoreOpen(true)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Restore
+                </Button>
               )}
             </div>
           )}

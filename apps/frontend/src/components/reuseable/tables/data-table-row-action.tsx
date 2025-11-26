@@ -17,6 +17,7 @@ import {
   Copy,
   Shield,
   FilePenLine,
+  RotateCcw,
 } from "lucide-react";
 import { ViewDocumentsModal } from "@/components/reuseable/view-details-documents/view-documents";
 import { BlockchainSigningModal } from "@/components/modals/blockchain-signing-modal";
@@ -62,12 +63,12 @@ import {
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>;
-  viewType?: 'document' | 'owned' | 'shared' | 'outgoing'; // 'document' for general document view, 'owned' for owned documents view, 'shared' for shared documents view, 'outgoing' for outgoing documents
+  viewType?: 'document' | 'owned' | 'shared' | 'outgoing' | 'archive'; // 'document' for general document view, 'owned' for owned documents view, 'shared' for shared documents view, 'outgoing' for outgoing documents, 'archive' for archive view
 }
 
 export function  DataTableRowActions<TData>({
   row,
-  viewType = 'document', // Default to 'document' view
+  viewType = 'document', // Default to 'document' view, can also be 'owned', 'shared', 'outgoing', or 'archive'
 }: DataTableRowActionsProps<TData>) {
   const router = useRouter();
   const { user: currentUser } = useAuth();
@@ -250,6 +251,38 @@ export function  DataTableRowActions<TData>({
     } catch (error: any) {
       console.error("Error archiving document:", error);
       toast.error(error.message || "Failed to archive document.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(`/api/archive/${document.id}/restore`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to restore document';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Document successfully restored.");
+    } catch (error: any) {
+      console.error("Error restoring document:", error);
+      toast.error(error.message || "Failed to restore document.");
     } finally {
       setIsLoading(false);
     }
@@ -592,6 +625,48 @@ export function  DataTableRowActions<TData>({
                   Archive
                 </DropdownMenuItem>
               )}
+            </>
+          )}
+
+          {/* Archive View Actions - Restore and Delete for archived documents */}
+          {viewType === 'archive' && (
+            <>
+              {/* Restore - for users with archive permissions */}
+              <DropdownMenuItem onClick={(e) => handleAction(e, handleRestore)}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Restore
+              </DropdownMenuItem>
+
+              {/* Delete - for users with delete permissions */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    disabled={isLoading}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Are you sure you want to delete this document permanently?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the
+                      document and remove its data from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={isLoading}>
+                      Delete Permanently
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           )}
         </DropdownMenuContent>
