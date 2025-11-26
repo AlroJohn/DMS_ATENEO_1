@@ -1,3 +1,5 @@
+"use client";
+
 import { ChartLineDots } from "@/components/reuseable/chart-line-dots";
 import { ChartPieLabel } from "@/components/reuseable/chart-pie-label";
 import { RecentDocuments } from "@/components/reuseable/recent-documents";
@@ -7,17 +9,55 @@ import { Activity, Clock, FileText, Users, AlertTriangle, Shield, Zap, CheckCirc
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function Page() {
+  const { data, loading, error } = useDashboardData();
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4 max-w-dvw p-4">
+        <div className="text-center py-10">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-4 max-w-dvw p-4">
+        <div className="text-center py-10">
+          <div className="text-red-500 mb-4">
+            <AlertTriangle className="h-12 w-12 mx-auto" />
+          </div>
+          <p className="text-red-500">Error loading dashboard data: {error}</p>
+          <p className="text-muted-foreground text-sm mt-2">Please try refreshing the page</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex flex-col gap-4 max-w-dvw p-4">
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No dashboard data available.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 max-w-dvw">
       {/* Document Statistics Cards */}
-      <DocumentStatsCards />
-      
+      <DocumentStatsCards stats={data.documentStats} />
+
       {/* Charts Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2">
-        <ChartPieLabel />
-        <ChartLineDots />
+        <ChartPieLabel documentStats={data.documentStats} />
+        <ChartLineDots chartData={data.documentTrends} />
       </div>
 
       {/* Quick Stats & Metrics - Row 1 */}
@@ -31,7 +71,7 @@ export default function Page() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
+            <div className="text-2xl font-bold">{data.recentActivity}</div>
             <p className="text-xs text-muted-foreground mt-1">activities this week</p>
           </CardContent>
         </Card>
@@ -45,7 +85,7 @@ export default function Page() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold">{data.pendingApprovals}</div>
             <p className="text-xs text-muted-foreground mt-1">awaiting your action</p>
           </CardContent>
         </Card>
@@ -59,7 +99,7 @@ export default function Page() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{data.activeWorkflows}</div>
             <p className="text-xs text-muted-foreground mt-1">workflows running</p>
           </CardContent>
         </Card>
@@ -73,16 +113,16 @@ export default function Page() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{data.collaborators}</div>
             <p className="text-xs text-muted-foreground mt-1">team members</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Storage & Compliance - Row 2 */}
-      {/* <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Storage Analytics */}
-        {/* <Card>
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-600" />
@@ -93,11 +133,11 @@ export default function Page() {
           <CardContent className="space-y-4">
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span>128 GB used</span>
-                <span className="text-muted-foreground">1000 GB</span>
+                <span>{data.storageUsage.used} GB used</span>
+                <span className="text-muted-foreground">{data.storageUsage.total} GB</span>
               </div>
-              <Progress value={12.8} className="h-2" />
-              <p className="text-xs text-muted-foreground mt-2">12.8% used</p>
+              <Progress value={data.storageUsage.percentage} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-2">{data.storageUsage.percentage}% used</p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-sm">
               <div>
@@ -117,7 +157,7 @@ export default function Page() {
         </Card>
 
         {/* Compliance & Security */}
-        {/* <Card>
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-green-600" />
@@ -129,9 +169,9 @@ export default function Page() {
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span>Compliance Score</span>
-                <span className="font-semibold">94%</span>
+                <span className="font-semibold">{data.complianceStatus}%</span>
               </div>
-              <Progress value={94} className="h-2" />
+              <Progress value={data.complianceStatus} className="h-2" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -149,7 +189,7 @@ export default function Page() {
             </div>
           </CardContent>
         </Card>
-      </div> */}
+      </div>
 
       {/* System Activity & Top Documents - Row 2 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -164,34 +204,26 @@ export default function Page() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">Document "Annual Report" signed</p>
-                  <p className="text-xs text-muted-foreground">2 minutes ago</p>
+              {data.systemActivity.map((activity, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${
+                    activity.action.includes('signed') ? 'bg-green-500' :
+                    activity.action.includes('activated') ? 'bg-blue-500' :
+                    activity.action.includes('uploaded') ? 'bg-purple-500' : 'bg-orange-500'
+                  }`}></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{activity.action}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {activity.timestamp.toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">Workflow "Contract Approval" activated</p>
-                  <p className="text-xs text-muted-foreground">15 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">3 documents uploaded to Finance</p>
-                  <p className="text-xs text-muted-foreground">28 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">Sarah Johnson shared 5 documents</p>
-                  <p className="text-xs text-muted-foreground">45 minutes ago</p>
-                </div>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -207,36 +239,21 @@ export default function Page() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-2 rounded hover:bg-accent transition-colors">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">Q3 Financial Report</p>
-                    <p className="text-xs text-muted-foreground">847 views</p>
+              {data.topDocuments.map((doc, index) => (
+                <div key={doc.id} className="flex items-center justify-between p-2 rounded hover:bg-accent transition-colors">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <FileText className={`h-4 w-4 flex-shrink-0 ${
+                      index === 0 ? 'text-blue-600' :
+                      index === 1 ? 'text-green-600' : 'text-purple-600'
+                    }`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{doc.title}</p>
+                      <p className="text-xs text-muted-foreground">{doc.views} views</p>
+                    </div>
                   </div>
+                  <TrendingUp className="h-4 w-4 text-green-600 flex-shrink-0" />
                 </div>
-                <TrendingUp className="h-4 w-4 text-green-600 flex-shrink-0" />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded hover:bg-accent transition-colors">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">Employee Handbook 2024</p>
-                    <p className="text-xs text-muted-foreground">612 views</p>
-                  </div>
-                </div>
-                <TrendingUp className="h-4 w-4 text-green-600 flex-shrink-0" />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded hover:bg-accent transition-colors">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <FileText className="h-4 w-4 text-purple-600 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">Project Alpha Proposal</p>
-                    <p className="text-xs text-muted-foreground">428 views</p>
-                  </div>
-                </div>
-                <TrendingUp className="h-4 w-4 text-green-600 flex-shrink-0" />
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -250,27 +267,15 @@ export default function Page() {
             <CardTitle className="text-sm font-medium">Department Performance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Finance</span>
-                <span className="text-muted-foreground">342 docs</span>
+            {data.departmentPerformance.map((dept, index) => (
+              <div key={index}>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>{dept.name}</span>
+                  <span className="text-muted-foreground">{dept.documentsProcessed} docs</span>
+                </div>
+                <Progress value={dept.efficiency} className="h-2" />
               </div>
-              <Progress value={85} className="h-2" />
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>HR</span>
-                <span className="text-muted-foreground">218 docs</span>
-              </div>
-              <Progress value={54} className="h-2" />
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Legal</span>
-                <span className="text-muted-foreground">189 docs</span>
-              </div>
-              <Progress value={47} className="h-2" />
-            </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -282,19 +287,29 @@ export default function Page() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm">Completed</span>
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200">847</Badge>
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200">
+                {data.workflowStats.completedWorkflows}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">In Progress</span>
-              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">156</Badge>
+              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                {data.workflowStats.inProgressWorkflows}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Pending</span>
-              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200">42</Badge>
+              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200">
+                {data.workflowStats.pendingWorkflows}
+              </Badge>
             </div>
             <div className="mt-4 p-2 bg-muted rounded">
               <p className="text-xs text-muted-foreground">Success Rate</p>
-              <p className="text-lg font-bold">94.2%</p>
+              <p className="text-lg font-bold">
+                {data.workflowStats.totalWorkflows > 0
+                  ? Math.round((data.workflowStats.completedWorkflows / data.workflowStats.totalWorkflows) * 100) + '%'
+                  : '0%'}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -327,7 +342,7 @@ export default function Page() {
 
       {/* Recent Documents Section */}
       <div className="grid grid-cols-1 gap-4">
-        <RecentDocuments />
+        <RecentDocuments documents={data.recentDocuments} />
       </div>
 
       {/* System Alerts & Notifications removed */}
