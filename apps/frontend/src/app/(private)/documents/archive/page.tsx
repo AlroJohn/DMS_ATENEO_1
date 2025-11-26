@@ -1,142 +1,124 @@
 "use client";
 
-import { useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, RotateCcw, Trash2 } from "lucide-react";
-import { useSocket } from "@/components/providers/providers";
+import { DataTable } from "@/components/reuseable/tables/data-table";
+import { columns, type ArchiveDocument } from "./columns";
 import { useArchive } from "@/hooks/use-archive";
+import { useSocket } from "@/components/providers/providers";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useEffect } from "react";
 
 export default function ArchivePage() {
-  const { archivedDocuments, loading, error, archiveDocument, restoreDocument, fetchArchivedDocuments } = useArchive();
+  const { archivedDocuments: rawArchivedDocuments, loading, error, fetchArchivedDocuments } = useArchive();
   const { socket } = useSocket();
+
+  // Transform the raw archived documents to match the ArchiveDocument type
+  const mappedDocuments: ArchiveDocument[] = (rawArchivedDocuments || []).map(
+    (d: any) => ({
+      id: d.document_id || d.id || "",
+      qrCode: d.qrCode || "",
+      barcode: d.barcode || "",
+      document: d.title || d.document || "",
+      documentId: d.document_code || d.documentId || d.id || "",
+      contactPerson: d.contactPerson || "",
+      contactOrganization: d.contactOrganization || "",
+      type: (d.document_type || d.type || "General") as string,
+      classification: (d.classification || "") as string,
+      currentLocation: (d.currentLocation || "Archive") as string,
+      status: (d.status || "completed") as string,
+      activity: d.activity || "Archived",
+      activityTime: d.activityTime || d.updated_at || d.deleted_at || "",
+      deletedBy: d.deletedBy || d.deleted_by || "",
+      deletedAt: d.deletedAt || d.deleted_at || "",
+      restoredBy: d.restoredBy || d.restored_by || undefined,
+      restoredAt: d.restoredAt || d.restored_at || undefined,
+      // Add security related fields if they exist
+      blockchainStatus: d.blockchainStatus || d.blockchain_status || null,
+      blockchainProjectUuid: d.blockchainProjectUuid || undefined,
+      blockchainTxHash: d.blockchainTxHash || undefined,
+      signedAt: d.signedAt || d.signed_at || undefined,
+      lockStatus: d.lockStatus || d.lock_status || undefined,
+      lockedBy: d.lockedBy || d.locked_by || undefined,
+      lockedAt: d.lockedAt || d.locked_at || undefined,
+      ocrStatus: d.ocrStatus || d.ocr_status || undefined,
+      ocrProgress: d.ocrProgress || d.ocr_progress || undefined,
+      integrityStatus: d.integrityStatus || d.integrity_status || undefined,
+      checksum: d.checksum || undefined,
+      encryptionStatus: d.encryptionStatus || d.encryption_status || undefined,
+    })
+  );
 
   // Listen for real-time document updates
   useEffect(() => {
     if (!socket) return;
 
-    const handleDocumentArchived = () => {
-      fetchArchivedDocuments();
+    const handleDocumentAdded = () => {
+      try {
+        fetchArchivedDocuments();
+      } catch (err) {
+        console.error("Error refetching documents on documentAdded:", err);
+      }
     };
 
-    const handleDocumentRestored = () => {
-      fetchArchivedDocuments();
+    const handleDocumentUpdated = () => {
+      try {
+        fetchArchivedDocuments();
+      } catch (err) {
+        console.error("Error refetching documents on documentUpdated:", err);
+      }
+    };
+
+    const handleDocumentDeleted = () => {
+      try {
+        fetchArchivedDocuments();
+      } catch (err) {
+        console.error("Error refetching documents on documentDeleted:", err);
+      }
     };
 
     // Listen for document-related events
-    socket.on('documentArchived', handleDocumentArchived);
-    socket.on('documentRestored', handleDocumentRestored);
+    socket.on('documentAdded', handleDocumentAdded);
+    socket.on('documentUpdated', handleDocumentUpdated);
+    socket.on('documentDeleted', handleDocumentDeleted);
+    socket.on('documentArchived', handleDocumentAdded); // Refetch when documents are archived
+    socket.on('documentRestored', handleDocumentAdded); // Refetch when documents are restored
 
     // Cleanup listeners on unmount
     return () => {
-      socket.off('documentArchived', handleDocumentArchived);
-      socket.off('documentRestored', handleDocumentRestored);
+      socket.off("documentAdded", handleDocumentAdded);
+      socket.off("documentUpdated", handleDocumentUpdated);
+      socket.off("documentDeleted", handleDocumentDeleted);
+      socket.off("documentArchived", handleDocumentAdded);
+      socket.off("documentRestored", handleDocumentAdded);
     };
   }, [socket, fetchArchivedDocuments]);
 
-  const handleRestore = async (documentId: string) => {
-    await restoreDocument(documentId);
-  };
-
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-6">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search archived documents..." className="pl-9" />
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader><CardTitle>Archived Documents</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex justify-center py-10">
-              <div className="flex flex-col items-center gap-2">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                <p className="text-sm text-muted-foreground">Loading archived documents...</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col gap-6">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search archived documents..." className="pl-9" />
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader><CardTitle>Archived Documents</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-center py-6 text-red-500">Error: {error}</div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search archived documents..." className="pl-9" />
+    <div className="w-full flex h-full flex-col bg-background">
+      {error && (
+        <div className="mb-4">
+          <Alert variant="destructive" className="max-w-md">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </div>
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>Archived Documents</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {archivedDocuments.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">No archived documents found</div>
-            ) : (
-              archivedDocuments.map((doc: any) => (
-                <div key={doc.document_id} className="flex items-center justify-between border-b pb-3 last:border-0">
-                  <div className="space-y-1">
-                    <div className="font-medium">{doc.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Archived on {doc.deleted_at ? formatDate(doc.deleted_at) : 'N/A'}
-                      {doc.files && doc.files.length > 0 && ` • ${doc.files[0].DocumentMetadata?.file_size || 'N/A'}`}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRestore(doc.document_id)}
-                      disabled={loading} // Disable button when loading
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" />Restore
-                    </Button>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      )}
+      <DataTable
+        columns={columns}
+        data={mappedDocuments}
+        selection={true}
+        excludedFilters={["documentId"]}
+        showUploadButton={false} // Don't show upload button in archive view
+        viewType="archive"
+        initialState={{
+          columnVisibility: {
+            security: false,
+            dates: false,
+          },
+        }}
+        isLoading={loading}
+      />
     </div>
   );
 }

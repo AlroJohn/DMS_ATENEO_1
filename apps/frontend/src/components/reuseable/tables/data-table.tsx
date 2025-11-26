@@ -42,7 +42,7 @@ interface DataTableProps<TData, TValue> {
   excludedFilters?: string[];
   onSelectionChange?: (selectedRows: TData[]) => void;
   showUploadButton?: boolean; // Prop to control upload button visibility
-  viewType?: 'document' | 'owned' | 'shared'; // View type to control which actions are shown in toolbar
+  viewType?: 'document' | 'owned' | 'shared' | 'outgoing' | 'archive'; // View type to control which actions are shown in toolbar
   initialState?: {
     columnVisibility?: Record<string, boolean>;
   };
@@ -92,12 +92,19 @@ export function DataTable<TData, TValue>({
   });
 
   React.useEffect(() => {
-    if (onSelectionChange) {
+    let isMounted = true; // Track if component is still mounted
+
+    if (onSelectionChange && isMounted) {
       const selectedRows = table
         .getSelectedRowModel()
         .rows.map((row) => row.original as TData);
       onSelectionChange(selectedRows);
     }
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, [onSelectionChange, table, rowSelection]);
 
   return (

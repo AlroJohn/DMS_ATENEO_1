@@ -34,12 +34,13 @@ export const useArchive = (): ArchiveHook => {
     setError(null);
     
     try {
-      const response = await fetch('/api/archive', {
+      const response = await fetch('/api/archive', { // Use the archive API endpoint
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           // Include auth token if required
         },
+        credentials: 'include', // Include cookies for auth
       });
 
       if (!response.ok) {
@@ -62,11 +63,12 @@ export const useArchive = (): ArchiveHook => {
     setError(null);
 
     try {
-      const response = await fetch(`/api/archive/${documentId}/archive`, {
+      const response = await fetch(`/api/archive/${documentId}/archive`, { // Use the archive API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for auth
       });
 
       if (!response.ok) {
@@ -89,11 +91,12 @@ export const useArchive = (): ArchiveHook => {
     setError(null);
 
     try {
-      const response = await fetch(`/api/archive/${documentId}/restore`, {
+      const response = await fetch(`/api/archive/${documentId}/restore`, { // Use the archive API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for auth
       });
 
       if (!response.ok) {
