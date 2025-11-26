@@ -62,7 +62,7 @@ import {
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>;
-  viewType?: 'document' | 'owned' | 'shared'; // 'document' for general document view, 'owned' for owned documents view, 'shared' for shared documents view
+  viewType?: 'document' | 'owned' | 'shared' | 'outgoing'; // 'document' for general document view, 'owned' for owned documents view, 'shared' for shared documents view, 'outgoing' for outgoing documents
 }
 
 export function  DataTableRowActions<TData>({
@@ -572,6 +572,26 @@ export function  DataTableRowActions<TData>({
                 <Send className="mr-2 h-4 w-4" />
                 Release
               </DropdownMenuItem>
+            </>
+          )}
+
+          {/* Outgoing View Actions - Cancel and Archive for in-transit documents */}
+          {viewType === 'outgoing' && (
+            <>
+              {/* Cancel - for users with transfer reject permissions and in-transit status */}
+              {showCancel && (
+                <DropdownMenuItem onClick={(e) => handleAction(e, handleCancel)}>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancel
+                </DropdownMenuItem>
+              )}
+              {/* Archive - for users with archive permissions */}
+              {showArchive && (
+                <DropdownMenuItem onClick={(e) => handleAction(e, handleArchive)}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </DropdownMenuItem>
+              )}
             </>
           )}
         </DropdownMenuContent>

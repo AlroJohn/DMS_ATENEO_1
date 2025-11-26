@@ -264,7 +264,7 @@ export const outgoingColumns: ColumnDef<OutgoingDocument>[] = [
     },
     {
         id: 'actions',
-        cell: ({ row }) => <DataTableRowActions row={row} />,
+        cell: ({ row }) => <DataTableRowActions row={row} viewType="outgoing" />,
         enableSorting: false,
         enableHiding: false,
     },

@@ -117,6 +117,7 @@ export default function InTransitDocumentsPage() {
             columns={outgoingColumns}
             data={outgoingDocuments}
             selection={true}
+            viewType="outgoing"
             isLoading={isLoadingOutgoing}
           />
         </TabsContent>
