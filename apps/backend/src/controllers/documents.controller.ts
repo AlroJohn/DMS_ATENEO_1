@@ -122,6 +122,7 @@ export class DocumentController {
     const authReq = req as AuthRequest;
     const { id } = req.params;
     const files = (req as any).files as Express.Multer.File[] | undefined;
+    const { versionGroupId } = req.body; // Get versionGroupId from request body if provided
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -137,7 +138,8 @@ export class DocumentController {
     const uploaded = await this.documentService.uploadFilesToDocument(
       id,
       files,
-      authReq.user.id
+      authReq.user.id,
+      versionGroupId
     );
 
     return sendSuccess(res, uploaded, 201);

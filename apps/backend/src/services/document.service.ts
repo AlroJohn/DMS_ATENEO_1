@@ -1324,6 +1324,9 @@ export class DocumentService {
 
       const checksum = await this.calculateChecksum(fileMetadata.path);
 
+      // Generate a unique version_group_id for this file
+      const newVersionGroupId = crypto.randomUUID();
+
       const createdFile = await this.prismaAny.documentFile.create({
         data: {
           document_id: document.document_id,
@@ -1334,7 +1337,8 @@ export class DocumentService {
           mime_type: fileMetadata.mimetype,
           checksum,
           is_primary: existingFileCount === 0,
-          uploaded_by: user.account.account_id
+          uploaded_by: user.account.account_id,
+          version_group_id: newVersionGroupId
         }
       });
 
@@ -1396,11 +1400,16 @@ export class DocumentService {
   /**
    * Upload multiple files to existing document
    */
-  async uploadFilesToDocument(documentId: string, files: Express.Multer.File[], userId: string) {
+  async uploadFilesToDocument(documentId: string, files: Express.Multer.File[], userId: string, versionGroupId?: string) {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(documentId)) {
       throw new Error('Invalid document ID format');
+    }
+
+    // If versionGroupId is provided, validate it as well
+    if (versionGroupId && !uuidRegex.test(versionGroupId)) {
+      throw new Error('Invalid version group ID format');
     }
 
     // Verify document exists and user has access
@@ -1427,6 +1436,14 @@ export class DocumentService {
       throw new Error('User account context missing');
     }
 
+    // This variable will be used if we're branching (versionGroupId provided)
+    // If not branching, each file will get its own version_group_id in the loop
+    let branchingVersionGroupId: string | null = null;
+    if (versionGroupId) {
+      // Use the provided versionGroupId for branching
+      branchingVersionGroupId = versionGroupId;
+    }
+
     const existingFiles = await this.prismaAny.documentFile.findMany({
       where: { document_id: documentId },
       orderBy: { uploaded_at: 'asc' }
@@ -1434,14 +1451,24 @@ export class DocumentService {
 
     let hasRealFile = existingFiles.some((file: any) => !this.isPlaceholderFile(file));
     const existingCount = existingFiles.length;
-    let lastMajor = 1;
-    let lastMinor = -1;
 
-    if (existingFiles.length > 0) {
-      const lastFile = existingFiles[existingFiles.length - 1];
-      const vParts = (lastFile.version || "1.0").split('.');
-      lastMajor = parseInt(vParts[0]) || 1;
-      lastMinor = parseInt(vParts[1]) || 0;
+    // If we're branching (versionGroupId provided), find existing files in this version group to determine the next version
+    let nextVersionInGroup = 1;
+    if (versionGroupId) {
+      const existingFilesInGroup = await this.prismaAny.documentFile.findMany({
+        where: {
+          document_id: documentId,
+          version_group_id: versionGroupId
+        },
+        orderBy: { uploaded_at: 'desc' }
+      });
+
+      if (existingFilesInGroup.length > 0) {
+        const lastFileInGroup = existingFilesInGroup[0]; // Most recent
+        const vParts = (lastFileInGroup.version || "1.0").split('.');
+        const currentMinor = parseInt(vParts[1]) || 0;
+        nextVersionInGroup = currentMinor + 1;
+      }
     }
 
     const uploadedFiles = [];
@@ -1450,8 +1477,14 @@ export class DocumentService {
       const fileMetadata = getFileMetadata(file);
       const checksum = await this.calculateChecksum(fileMetadata.path);
 
-      const currentMinor = lastMinor + 1 + index;
-      const version = `${lastMajor}.${currentMinor}`;
+      // For branching, increment the version number within the same group
+      // For new uploads (not branching), each file gets its own version group with version 1.0
+      const version = versionGroupId
+        ? `1.${nextVersionInGroup + index}`  // Branching: increment within group (e.g., 1.4, 1.5...)
+        : `1.0`;  // New file in new group: all get version 1.0
+
+      // If branching, use the same version group; otherwise, each file gets its own version group
+      const currentFileVersionGroupId = branchingVersionGroupId || crypto.randomUUID();
 
       const shouldBePrimary = !hasRealFile && index === 0;
 
@@ -1466,7 +1499,8 @@ export class DocumentService {
           checksum,
           version,
           is_primary: shouldBePrimary,
-          uploaded_by: user.account.account_id
+          uploaded_by: user.account.account_id,
+          version_group_id: currentFileVersionGroupId
         }
       });
 
@@ -1522,7 +1556,8 @@ export class DocumentService {
         type: created.mime_type,
         version: created.version,
         isPrimary: created.is_primary,
-        uploadDate: created.uploaded_at
+        uploadDate: created.uploaded_at,
+        versionGroupId: created.version_group_id
       });
     }
 
@@ -1600,6 +1635,7 @@ export class DocumentService {
             name: `${checkedOutByAccount.user.first_name} ${checkedOutByAccount.user.last_name}`.trim(),
           }
           : null,
+        versionGroupId: file.version_group_id,
       };
     });
   }
@@ -1628,7 +1664,8 @@ export class DocumentService {
       isPrimary: file.is_primary,
       checksum: file.checksum,
       uploadDate: file.uploaded_at,
-      downloadUrl: `/api/documents/${documentId}/files/${file.file_id}/download`
+      downloadUrl: `/api/documents/${documentId}/files/${file.file_id}/download`,
+      versionGroupId: file.version_group_id,
     }));
   }
 

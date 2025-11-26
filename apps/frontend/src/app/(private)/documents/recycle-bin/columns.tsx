@@ -71,7 +71,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
         <div className="flex flex-col gap-1.5 py-1">
           <div className="font-medium">{data.document}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {data.documentId}
             </span>
             <Copy
@@ -112,7 +112,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
     cell: ({ row }) => {
       const currentLocation = row.original.currentLocation;
       return (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {currentLocation ? formatText(currentLocation) : "N/A"}
         </span>
       );
@@ -133,7 +133,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
     cell: ({ row }) => {
       const type = row.original.type;
       return (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {formatText(type)}
         </span>
       );
@@ -188,7 +188,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
             }`}
           />
           <span
-            className={`text-sm ${
+            className={`text-xs ${
               status === "Dispatch"
                 ? "text-emerald-600"
                 : "text-muted-foreground"
@@ -213,7 +213,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
     cell: ({ row }) => {
       const data = row.original;
       return (
-        <div className="flex flex-col gap-1.5 text-sm">
+        <div className="flex flex-col gap-1.5 text-xs">
           <div className="flex items-center gap-1.5">
             <Calendar className="w-3 h-3 text-orange-500" />
             <span className="text-muted-foreground">{data.activity}</span>
@@ -237,7 +237,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
       return (
         <div className="flex items-center gap-1.5">
           <User className="w-3 h-3 text-red-500" />
-          <span className="text-sm text-muted-foreground">{deletedBy}</span>
+          <span className="text-xs text-muted-foreground">{deletedBy}</span>
         </div>
       );
     },
@@ -255,7 +255,7 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
       return (
         <div className="flex items-center gap-1.5">
           <Calendar className="w-3 h-3 text-red-500" />
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             <DateTime value={deletedAt} format="date" />
           </span>
         </div>
@@ -272,25 +272,30 @@ export const columns: ColumnDef<RecycleBinDocument, unknown>[] = [
       const document = row.original;
       const handleRestore = async () => {
         try {
-          const response = await fetch(`/api/documents/${document.id}/restore`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include', // This will send HttpOnly cookies
-          });
+          const response = await fetch(
+            `/api/documents/${document.id}/restore`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include", // This will send HttpOnly cookies
+            }
+          );
 
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Failed to restore document');
+            throw new Error(
+              errorData.error?.message || "Failed to restore document"
+            );
           }
 
           const result = await response.json();
-          toast.success(result.message || 'Document restored successfully.');
+          toast.success(result.message || "Document restored successfully.");
           // The parent component will handle the refresh
         } catch (error: any) {
-          console.error('Error restoring document:', error);
-          toast.error(error.message || 'Failed to restore document');
+          console.error("Error restoring document:", error);
+          toast.error(error.message || "Failed to restore document");
         }
       };
 

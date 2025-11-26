@@ -741,6 +741,11 @@ export function EditablePdfViewer({
       const formData = new FormData();
       formData.append("files", editedFile);
 
+      // Include the versionGroupId from the source file to maintain the same version group
+      if (selectedFile.versionGroupId) {
+        formData.append("versionGroupId", selectedFile.versionGroupId);
+      }
+
       const uploadResponse = await fetch(`/api/documents/${documentId}/files`, {
         method: "POST",
         credentials: "include",
@@ -762,6 +767,32 @@ export function EditablePdfViewer({
       );
       clearAnnotations();
       const newFileId = (uploadResult.data && uploadResult.data[0]?.id) || null;
+
+      // Check in the original file to release the lock after successful save
+      try {
+        const checkinResponse = await fetch(
+          `/api/files/${selectedFile.id}/checkin`,
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
+
+        if (!checkinResponse.ok) {
+          const checkinResult = await checkinResponse.json().catch(() => ({
+            error: { message: "Failed to checkin file" },
+          }));
+          console.warn("Failed to checkin file after save:", checkinResult.error?.message || "Unknown error");
+          // Don't throw an error here as the save was successful, just warn the user
+          toast.warning("Document saved but failed to release file lock");
+        } else {
+          console.log("Successfully checked in the file after saving");
+        }
+      } catch (checkinError) {
+        console.error("Error checking in file after save:", checkinError);
+        toast.warning("Document saved but failed to release file lock");
+      }
+
       onSaved(newFileId ?? undefined);
     } catch (error: any) {
       console.error("Failed to save PDF edits", error);

@@ -182,6 +182,14 @@ export function UploadDocumentModal({
           const additionalFileForm = new FormData();
           additionalFileForm.append("files", files[i]); // Use the 'files' field for additional uploads
 
+          // Generate a unique versionGroupId for each file during bulk upload
+          const versionGroupId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+          additionalFileForm.append("versionGroupId", versionGroupId);
+
           const additionalResponse = await fetch(`/api/documents/${documentId}/files`, {
             method: "POST",
             credentials: "include",

@@ -12,6 +12,7 @@ export interface DocumentFileMetadata {
   checksum?: string | null;
   uploadDate?: string | Date | null;
   downloadUrl?: string | null;
+  versionGroupId?: string | null;
 }
 
 interface UseDocumentFilesResult {
