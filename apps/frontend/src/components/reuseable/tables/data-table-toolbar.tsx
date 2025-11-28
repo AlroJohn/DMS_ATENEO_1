@@ -702,43 +702,74 @@ export function DataTableToolbar<TData>({
         return;
       }
 
-      // Process each document individually using the appropriate restore endpoint
-      const results = await Promise.allSettled(
-        documentIds.map(id => {
-          // Use different endpoints based on view type
-          const endpoint = viewType === 'recycle-bin'
-            ? `/api/documents/${id}/restore`
-            : `/api/archive/${id}/restore`;
+      // For recycle-bin view, use the bulk restore endpoint
+      if (viewType === 'recycle-bin') {
+        const response = await fetch('/api/documents/recycle-bin/bulk-restore', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ documentIds })
+        });
 
-          return fetch(endpoint, {
-            method: 'POST', // Using POST for restore action
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-          });
-        })
-      );
+        if (!response.ok) {
+          // Try to get error details from response
+          let errorData = {};
+          try {
+            errorData = await response.json();
+          } catch (parseError) {
+            // If JSON parsing fails, try to get text
+            try {
+              const errorText = await response.text();
+              console.error('Raw error response:', errorText);
+              errorData = { message: errorText || `HTTP Error ${response.status}` };
+            } catch (textError) {
+              errorData = { message: `HTTP Error ${response.status}` };
+            }
+          }
 
-      // Count successful operations
-      const successfulCount = results.filter(result =>
-        result.status === 'fulfilled' && result.value.ok
-      ).length;
+          console.error('Bulk restore error response:', errorData);
+          throw new Error(errorData.error?.message || errorData.message || `Failed to restore documents from recycle bin (Status: ${response.status})`);
+        }
 
-      if (successfulCount > 0) {
-        toast.success(`${successfulCount} document(s) restored successfully.`);
-      }
+        const data = await response.json();
+        toast.success(data.message);
+      } else {
+        // For archive view, use the existing individual restore endpoints
+        const results = await Promise.allSettled(
+          documentIds.map(id => {
+            const endpoint = `/api/archive/${id}/restore`;
+            return fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+            });
+          })
+        );
 
-      // Handle any failures
-      const failedCount = results.length - successfulCount;
-      if (failedCount > 0) {
-        toast.error(`${failedCount} document(s) failed to restore.`);
+        // Count successful operations
+        const successfulCount = results.filter(result =>
+          result.status === 'fulfilled' && result.value.ok
+        ).length;
+
+        if (successfulCount > 0) {
+          toast.success(`${successfulCount} document(s) restored successfully.`);
+        }
+
+        // Handle any failures
+        const failedCount = results.length - successfulCount;
+        if (failedCount > 0) {
+          toast.error(`${failedCount} document(s) failed to restore.`);
+        }
       }
 
       table.toggleAllRowsSelected(false); // Clear selection
     } catch (error: any) {
       console.error('Error restoring documents:', error);
-      toast.error('Failed to restore documents');
+      toast.error(error.message || 'Failed to restore documents');
     } finally {
       setIsBulkRestoreOpen(false);
     }
@@ -746,10 +777,9 @@ export function DataTableToolbar<TData>({
 
   const handleEmptyRecycleBin = async () => {
     try {
-      // We need to first fetch all documents in the recycle bin to get their IDs
-      // Then send them to the bulk delete endpoint
-      const response = await fetch('/api/documents/recycle-bin?page=1&limit=1000', { // Fetch a large number to get all
-        method: 'GET',
+      // Call the new empty recycle bin endpoint directly
+      const response = await fetch('/api/documents/recycle-bin', {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -758,35 +788,11 @@ export function DataTableToolbar<TData>({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to fetch documents from recycle bin');
-      }
-
-      const data = await response.json();
-      const documents = data.documents || data.data?.documents || [];
-      const documentIds = documents.map((doc: any) => doc.id || doc.document_id).filter(Boolean);
-
-      if (documentIds.length === 0) {
-        toast.info("No documents to delete.");
-        setIsEmptyRecycleBinOpen(false);
-        return;
-      }
-
-      // Now delete all documents permanently using the bulk delete endpoint
-      const deleteResponse = await fetch('/api/documents/bulk-delete', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ documentIds })
-      });
-
-      if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.json();
         throw new Error(errorData.error?.message || 'Failed to empty recycle bin');
       }
 
-      toast.success("Recycle bin emptied successfully.");
+      const data = await response.json();
+      toast.success(`Recycle bin emptied successfully. ${data.count || 0} document(s) permanently deleted.`);
       // Refresh the table after emptying
       window.location.reload(); // Simple refresh for now
     } catch (error: any) {
