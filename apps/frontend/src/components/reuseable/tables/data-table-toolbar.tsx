@@ -715,7 +715,7 @@ export function DataTableToolbar<TData>({
 
         if (!response.ok) {
           // Try to get error details from response
-          let errorData = {};
+          let errorData: { error?: { message?: string }; message?: string } = {};
           try {
             errorData = await response.json();
           } catch (parseError) {
@@ -787,7 +787,7 @@ export function DataTableToolbar<TData>({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: { error?: { message?: string }; message?: string } = await response.json();
         throw new Error(errorData.error?.message || 'Failed to empty recycle bin');
       }
 
